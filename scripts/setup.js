@@ -34,7 +34,7 @@ async function updateClaudeConfig() {
       mcpServers: {
         solidworks: {
           command: 'npx',
-          args: ['@espo/mcp-server-solidworks']
+          args: ['mcp-server-solidworks-ts']
         }
       }
     }, null, 2));
@@ -48,7 +48,7 @@ async function updateClaudeConfig() {
   
   config.mcpServers.solidworks = {
     command: 'npx',
-    args: ['@espo/mcp-server-solidworks']
+    args: ['mcp-server-solidworks-ts']
   };
   
   // Write back

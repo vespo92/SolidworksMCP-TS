@@ -1,5 +1,5 @@
 {
-  "name": "@espo/mcp-server-solidworks",
+  "name": "mcp-server-solidworks-ts",
   "version": "1.0.0",
   "description": "MCP server for SolidWorks CAD automation with VBA generation",
   "type": "module",
@@ -42,6 +42,6 @@
     "automation",
     "vba"
   ],
-  "author": "ESPO Corporation",
+  "author": "Your Name",
   "license": "MIT"
 }

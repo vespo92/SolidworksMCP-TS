@@ -23,7 +23,7 @@ A powerful Model Context Protocol (MCP) server that enables Claude to control So
 ### 1. Install from npm (Recommended)
 
 ```bash
-npm install -g @espo/mcp-server-solidworks
+npm install -g mcp-server-solidworks-ts
 ```
 
 ### 2. Configure Claude Desktop
@@ -39,7 +39,7 @@ The installer will automatically update your Claude configuration. If you need t
   "mcpServers": {
     "solidworks": {
       "command": "npx",
-      "args": ["@espo/mcp-server-solidworks"]
+      "args": ["mcp-server-solidworks-ts"]
     }
   }
 }
@@ -141,7 +141,7 @@ SOLIDWORKS_MACROS_PATH=C:/SolidWorks/Macros
 
 ```bash
 # Clone the repository
-git clone https://github.com/espocorp/mcp-server-solidworks
+git clone https://github.com/yourusername/mcp-server-solidworks
 cd mcp-server-solidworks-ts
 
 # Install dependencies
@@ -203,9 +203,9 @@ Contributions welcome! Please read CONTRIBUTING.md
 
 ## 📞 Support
 
-- Issues: [GitHub Issues](https://github.com/espocorp/mcp-server-solidworks/issues)
-- Discussion: [GitHub Discussions](https://github.com/espocorp/mcp-server-solidworks/discussions)
+- Issues: [GitHub Issues](https://github.com/yourusername/mcp-server-solidworks/issues)
+- Discussion: [GitHub Discussions](https://github.com/yourusername/mcp-server-solidworks/discussions)
 
 ---
 
-Built with ❤️ by ESPO Corporation
+Built with ❤️ by the community

@@ -1,84 +1,68 @@
-# Dependencies
+# Node
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-.pnpm-store/
+lerna-debug.log*
+.pnpm-debug.log*
 
-# Build output
+# TypeScript
 dist/
-build/
 *.tsbuildinfo
 
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# IDE and editor files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
 Thumbs.db
 
-# Test coverage
-coverage/
-.nyc_output/
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Logs
 logs/
 *.log
 
-# OS files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Testing
+coverage/
+.nyc_output/
 
-# SolidWorks temporary files
-*.SLDPRT.swp
-*.SLDASM.swp
-*.SLDDRW.swp
-~$*.SLDPRT
-~$*.SLDASM
-~$*.SLDDRW
+# Build
+build/
+out/
 
-# VBA temporary files
-*.swp
-*.swb
-~$*.swp
+# SolidWorks
+*.SLDPRT
+*.SLDASM
+*.SLDDRW
+*.sldprt
+*.sldasm
+*.slddrw
+*.slddrt
 
-# ChromaDB data (if using local storage)
-chroma_data/
-*.chroma/
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.old
 
-# Package files
-*.tgz
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# Credentials
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+credentials/
 
-# Debug files
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
+# Local configuration overrides
+claude-config-local.json
+config.local.json
