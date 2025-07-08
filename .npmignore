@@ -1,0 +1,55 @@
+# Source files (only ship built files)
+src/
+*.ts
+!*.d.ts
+
+# Configuration files
+.gitignore
+.eslintrc*
+.prettierrc*
+tsconfig.json
+vitest.config.*
+
+# Development files
+examples/
+scripts/setup.js
+docs/
+*.md
+!README.md
+!LICENSE
+
+# Test files
+__tests__/
+test/
+tests/
+*.test.*
+*.spec.*
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env*
+
+# Git files
+.git/
+.gitattributes
+
+# CI/CD
+.github/
+.travis.yml
+.circleci/
+
+# Logs
+*.log
+logs/
+
+# Development dependencies info
+yarn.lock
+package-lock.json
+pnpm-lock.yaml

@@ -1,0 +1,47 @@
+{
+  "name": "@espo/mcp-server-solidworks",
+  "version": "1.0.0",
+  "description": "MCP server for SolidWorks CAD automation with VBA generation",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-server-solidworks": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "prepare": "npm run build",
+    "postinstall": "node scripts/setup.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.1",
+    "winax": "^3.4.2",
+    "chromadb": "^1.8.1",
+    "handlebars": "^4.7.8",
+    "zod": "^3.23.8",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.1",
+    "@typescript-eslint/eslint-plugin": "^8.4.0",
+    "@typescript-eslint/parser": "^8.4.0",
+    "eslint": "^9.9.1",
+    "prettier": "^3.3.3",
+    "tsx": "^4.7.0",
+    "typescript": "^5.5.4",
+    "vitest": "^1.2.1"
+  },
+  "keywords": [
+    "mcp",
+    "solidworks",
+    "cad",
+    "automation",
+    "vba"
+  ],
+  "author": "ESPO Corporation",
+  "license": "MIT"
+}
