@@ -8,7 +8,7 @@ import { SolidWorksAPI } from '../solidworks/api.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // VBA template compiler
-const compileTemplate = (templateName: string): HandlebarsTemplateDelegate => {
+const compileTemplate = (templateName: string): any => {
   const templatePath = join(__dirname, '../../examples/vba-templates', `${templateName}.vba`);
   const templateContent = readFileSync(templatePath, 'utf-8');
   return Handlebars.compile(templateContent);
@@ -54,7 +54,7 @@ export const vbaTools = [
         count: z.number().optional(),
       }),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       const vbaTemplates: Record<string, string> = {
         extrude: `
 Sub CreateExtrusion()
@@ -113,7 +113,7 @@ End Sub`,
       propertyName: z.string().optional().describe('Property name for update operations'),
       propertyValue: z.string().optional().describe('Property value for update operations'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       const template = compileTemplate('batch_process');
       return template({
         operation: args.operation,
@@ -134,9 +134,9 @@ End Sub`,
       procedureName: z.string().describe('Procedure name to execute'),
       arguments: z.array(z.any()).optional().describe('Arguments to pass to the macro'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const result = await swApi.runMacro(
+        const result = swApi.runMacro(
           args.macroPath,
           args.moduleName,
           args.procedureName,
@@ -158,7 +158,7 @@ End Sub`,
       views: z.array(z.enum(['front', 'top', 'right', 'iso', 'section', 'detail'])),
       sheet_size: z.enum(['A4', 'A3', 'A2', 'A1', 'A0', 'Letter', 'Tabloid']),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       const template = compileTemplate('create_drawing');
       return template({
         modelPath: args.modelPath,

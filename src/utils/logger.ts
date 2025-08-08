@@ -7,8 +7,8 @@ import winston from 'winston';
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
 // Custom format for console output
-const consoleFormat = printf(({ level, message, timestamp, stack, ...metadata }) => {
-  let msg = `${timestamp} [${level}]: ${message}`;
+const consoleFormat = printf(({ level, message, timestamp: ts, stack, ...metadata }) => {
+  let msg = `${ts} [${level}]: ${message}`;
   
   if (Object.keys(metadata).length > 0) {
     msg += ` ${JSON.stringify(metadata)}`;

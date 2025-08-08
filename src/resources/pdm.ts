@@ -160,7 +160,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Connect to PDM vault
    */
-  private async connectToVault(api: SolidWorksAPI, config: PDMConfig): Promise<void> {
+  private connectToVault(api: SolidWorksAPI, config: PDMConfig): void {
     // Implementation would connect to actual PDM vault
     logger.info(`Connecting to PDM vault: ${config.vaultName}`);
   }
@@ -168,7 +168,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Perform check-out operation
    */
-  private async performCheckOut(api: SolidWorksAPI, config: PDMConfig): Promise<any> {
+  private performCheckOut(api: SolidWorksAPI, config: PDMConfig): any {
     const checkOutConfig = config.operations.checkOut!;
     
     return {
@@ -182,7 +182,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Perform check-in operation
    */
-  private async performCheckIn(api: SolidWorksAPI, config: PDMConfig): Promise<any> {
+  private performCheckIn(api: SolidWorksAPI, config: PDMConfig): any {
     const checkInConfig = config.operations.checkIn!;
     
     return {
@@ -197,7 +197,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Execute workflow transitions
    */
-  private async executeWorkflow(api: SolidWorksAPI, config: PDMConfig): Promise<any> {
+  private executeWorkflow(api: SolidWorksAPI, config: PDMConfig): any {
     const workflowConfig = config.operations.workflow!;
     const results = [];
 
@@ -221,7 +221,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Setup automation tasks
    */
-  private async setupAutomation(api: SolidWorksAPI, config: PDMConfig): Promise<any> {
+  private setupAutomation(api: SolidWorksAPI, config: PDMConfig): any {
     const automationResults = [];
 
     if (config.automation?.tasks) {
@@ -351,7 +351,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Create folder structure
    */
-  async createFolderStructure(api: SolidWorksAPI): Promise<void> {
+  createFolderStructure(api: SolidWorksAPI): void {
     const config = this._properties as PDMConfig;
     
     if (config.fileStructure.folderStructure) {
@@ -368,7 +368,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Configure data cards
    */
-  async configureDataCards(api: SolidWorksAPI): Promise<void> {
+  configureDataCards(api: SolidWorksAPI): void {
     const config = this._properties as PDMConfig;
     
     if (config.metadata?.dataCards) {
@@ -385,7 +385,7 @@ export class PDMResource extends SolidWorksResource {
   /**
    * Setup notifications
    */
-  async setupNotifications(api: SolidWorksAPI): Promise<void> {
+  setupNotifications(api: SolidWorksAPI): void {
     const config = this._properties as PDMConfig;
     
     if (config.automation?.notifications) {

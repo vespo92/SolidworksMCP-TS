@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { SolidWorksAPI } from '../solidworks/api.js';
-import { dirname, basename, extname, join } from 'path';
+import { basename, extname, join } from 'path';
 
 export const exportTools = [
   {
@@ -11,11 +11,11 @@ export const exportTools = [
       format: z.enum(['step', 'iges', 'stl', 'pdf', 'dxf', 'dwg']).optional()
         .describe('Export format (if not specified, uses file extension)'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         // Determine format from extension if not specified
         const format = args.format || extname(args.outputPath).slice(1).toLowerCase();
-        await swApi.exportFile(args.outputPath, format);
+        swApi.exportFile(args.outputPath, format);
         return `Exported to ${format.toUpperCase()}: ${args.outputPath}`;
       } catch (error) {
         return `Failed to export: ${error}`;
@@ -33,7 +33,7 @@ export const exportTools = [
         .describe('List of configurations to export (if applicable)'),
       prefix: z.string().optional().describe('Prefix for output files'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
@@ -47,7 +47,7 @@ export const exportTools = [
             model.ShowConfiguration2(config);
             const filename = `${args.prefix || ''}${modelName}_${config}.${args.format}`;
             const outputPath = join(args.outputDir, filename);
-            await swApi.exportFile(outputPath, args.format);
+            swApi.exportFile(outputPath, args.format);
             exported.push(outputPath);
           }
         } else {
@@ -78,7 +78,7 @@ export const exportTools = [
         quality: z.enum(['coarse', 'fine', 'custom']).optional().describe('Mesh quality (STL)'),
       }),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
@@ -89,7 +89,7 @@ export const exportTools = [
           model.Extension.SetUserPreferenceInteger(8, 0, qualityMap[args.options.quality as keyof typeof qualityMap]);
         }
         
-        await swApi.exportFile(args.outputPath, args.format);
+        swApi.exportFile(args.outputPath, args.format);
         return `Exported with options to: ${args.outputPath}`;
       } catch (error) {
         return `Failed to export with options: ${error}`;
@@ -105,7 +105,7 @@ export const exportTools = [
       width: z.number().optional().describe('Image width in pixels'),
       height: z.number().optional().describe('Image height in pixels'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');

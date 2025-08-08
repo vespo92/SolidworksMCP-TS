@@ -136,7 +136,7 @@ export class DesignTableResource extends SolidWorksResource {
   /**
    * Get simulated data for testing
    */
-  private async getSimulatedData(): Promise<any[]> {
+  private getSimulatedData(): any[] {
     // Fallback data for when database is not available
     return [
       {
@@ -216,7 +216,7 @@ export class DesignTableResource extends SolidWorksResource {
   /**
    * Update design table in SolidWorks
    */
-  private async updateDesignTable(api: SolidWorksAPI, config: DesignTableConfig): Promise<any> {
+  private updateDesignTable(api: SolidWorksAPI, config: DesignTableConfig): any {
     // This would interact with actual SolidWorks API
     return {
       tableId: this.id,

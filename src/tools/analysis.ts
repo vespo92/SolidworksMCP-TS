@@ -8,9 +8,9 @@ export const analysisTools = [
     inputSchema: z.object({
       units: z.enum(['kg', 'g', 'lb']).default('kg').describe('Mass units'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const props = await swApi.getMassProperties();
+        const props = swApi.getMassProperties();
         
         // Convert mass based on units
         let mass = props.mass;
@@ -41,7 +41,7 @@ export const analysisTools = [
       treatSubAssembliesAsComponents: z.boolean().default(false),
       includeMultibodyParts: z.boolean().default(true),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model || model.GetType() !== 2) { // swDocASSEMBLY
@@ -54,7 +54,7 @@ export const analysisTools = [
         interferenceDetect.TreatSubAssembliesAsComponents = args.treatSubAssembliesAsComponents;
         interferenceDetect.IncludeMultibodyPartInterferences = args.includeMultibodyParts;
         
-        const results = interferenceDetect.GetInterferences();
+        interferenceDetect.GetInterferences(); // Process interferences
         const count = interferenceDetect.GetInterferenceCount();
         
         if (count === 0) {
@@ -75,13 +75,9 @@ export const analysisTools = [
       entity1: z.string().describe('Name or reference of first entity'),
       entity2: z.string().describe('Name or reference of second entity'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
-      try {
-        // Note: This would require entity selection which is complex in COM
-        return `Distance measurement requires interactive selection. Use the Measure tool in SolidWorks or generate VBA for automated measurement.`;
-      } catch (error) {
-        return `Failed to measure distance: ${error}`;
-      }
+    handler: (args: any, swApi: SolidWorksAPI) => {
+      // Note: This would require entity selection which is complex in COM
+      return `Distance measurement requires interactive selection. Use the Measure tool in SolidWorks or generate VBA for automated measurement.`;
     },
   },
   
@@ -92,7 +88,7 @@ export const analysisTools = [
       pullDirection: z.enum(['x', 'y', 'z', '-x', '-y', '-z']).describe('Pull direction'),
       requiredAngle: z.number().default(1).describe('Required draft angle in degrees'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
@@ -115,7 +111,7 @@ export const analysisTools = [
     inputSchema: z.object({
       checkType: z.enum(['all', 'faces', 'edges', 'vertices']).default('all'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
@@ -142,7 +138,7 @@ export const analysisTools = [
     name: 'get_bounding_box',
     description: 'Get the bounding box dimensions of the model',
     inputSchema: z.object({}),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');

@@ -6,6 +6,7 @@ export default [
   js.configs.recommended,
   {
     files: ['src/**/*.ts'],
+    ignores: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
     languageOptions: {
       parser: typescriptParser,
       parserOptions: {
@@ -40,8 +41,10 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['error', { 
         argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_'
+        varsIgnorePattern: '^_',
+        args: 'none' // Don't check unused args in interfaces
       }],
+      'no-unused-vars': 'off', // Turn off base rule when using TypeScript
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-non-null-assertion': 'warn',

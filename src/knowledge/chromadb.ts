@@ -19,7 +19,7 @@ export class SolidWorksKnowledgeBase {
         name: 'solidworks_operations',
         metadata: { description: 'SolidWorks operation history and patterns' },
       });
-    } catch (error) {
+    } catch {
       logger.warn('ChromaDB not available, running without knowledge base');
     }
   }

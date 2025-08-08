@@ -9,7 +9,7 @@ export const drawingTools = [
       template: z.string().describe('Drawing template path'),
       sheet_size: z.enum(['A4', 'A3', 'A2', 'A1', 'A0', 'Letter', 'Tabloid']).optional(),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const app = swApi.getApp();
         const model = swApi.getCurrentModel();
@@ -36,7 +36,7 @@ export const drawingTools = [
       y: z.number().describe('Y position on sheet (mm)'),
       scale: z.number().optional().describe('View scale (e.g., 0.5 for 1:2)'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model || model.GetType() !== 3) { // swDocDRAWING
@@ -93,7 +93,7 @@ export const drawingTools = [
         y2: z.number(),
       }).describe('Section line coordinates relative to parent view'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model || model.GetType() !== 3) {
@@ -116,7 +116,7 @@ export const drawingTools = [
       viewName: z.string().describe('Name of the view to dimension'),
       autoArrange: z.boolean().default(true).describe('Automatically arrange dimensions'),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model || model.GetType() !== 3) {
@@ -161,7 +161,7 @@ export const drawingTools = [
         finish: z.string().optional(),
       }),
     }),
-    handler: async (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model || model.GetType() !== 3) {

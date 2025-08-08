@@ -1,7 +1,7 @@
 // @ts-ignore - winax module doesn't have proper TypeScript definitions
 import winax from 'winax';
 const { createActiveXObject } = winax as any;
-import { SolidWorksModel, SolidWorksFeature, SolidWorksDrawing } from './types.js';
+import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
 
 export class SolidWorksAPI {
@@ -13,7 +13,7 @@ export class SolidWorksAPI {
     this.currentModel = null;
   }
   
-  async connect(): Promise<void> {
+  connect(): void {
     try {
       // Create or get running instance of SolidWorks
       this.swApp = createActiveXObject('SldWorks.Application');
@@ -24,7 +24,7 @@ export class SolidWorksAPI {
     }
   }
   
-  async disconnect(): Promise<void> {
+  disconnect(): void {
     if (this.currentModel) {
       this.currentModel = null;
     }
@@ -39,7 +39,7 @@ export class SolidWorksAPI {
   }
   
   // Model operations
-  async openModel(filePath: string): Promise<SolidWorksModel> {
+  openModel(filePath: string): SolidWorksModel {
     if (!this.swApp) throw new Error('Not connected to SolidWorks');
     
     const errors = { value: 0 };
@@ -72,7 +72,7 @@ export class SolidWorksAPI {
     };
   }
   
-  async closeModel(save: boolean = false): Promise<void> {
+  closeModel(save: boolean = false): void {
     if (!this.currentModel) return;
     
     if (save) {
@@ -83,7 +83,7 @@ export class SolidWorksAPI {
     this.currentModel = null;
   }
   
-  async createPart(): Promise<SolidWorksModel> {
+  createPart(): SolidWorksModel {
     if (!this.swApp) throw new Error('Not connected to SolidWorks');
     
     // Create new part document
@@ -103,7 +103,7 @@ export class SolidWorksAPI {
   }
   
   // Macro support methods
-  async createSketch(params: any): Promise<any> {
+  createSketch(params: any): any {
     if (!this.currentModel) throw new Error('No active model');
     
     const { plane = 'Front' } = params;
@@ -118,7 +118,7 @@ export class SolidWorksAPI {
     return { success: false, error: 'Failed to create sketch' };
   }
   
-  async addLine(params: any): Promise<any> {
+  addLine(params: any): any {
     if (!this.currentModel) throw new Error('No active model');
     
     const { x1 = 0, y1 = 0, z1 = 0, x2 = 100, y2 = 0, z2 = 0 } = params;
@@ -135,12 +135,12 @@ export class SolidWorksAPI {
     return { success: false, error: 'Failed to create line' };
   }
   
-  async extrude(params: any): Promise<any> {
+  extrude(params: any): any {
     if (!this.currentModel) throw new Error('No active model');
     
     const { depth = 25, reverse = false, draft = 0 } = params;
     
-    const feature = await this.createExtrude(depth, draft, reverse);
+    const feature = this.createExtrude(depth, draft, reverse);
     
     if (feature) {
       return { success: true, featureId: feature.name };
@@ -150,11 +150,11 @@ export class SolidWorksAPI {
   }
   
   // Feature operations
-  async createExtrude(
+  createExtrude(
     depth: number,
     draft: number = 0,
     reverse: boolean = false
-  ): Promise<SolidWorksFeature> {
+  ): SolidWorksFeature {
     if (!this.currentModel) throw new Error('No model open');
     
     const feature = this.currentModel.FeatureManager.FeatureExtrusion3(
@@ -191,7 +191,7 @@ export class SolidWorksAPI {
   }
   
   // Dimension operations
-  async getDimension(name: string): Promise<number> {
+  getDimension(name: string): number {
     if (!this.currentModel) throw new Error('No model open');
     
     const dimension = this.currentModel.Parameter(name);
@@ -202,7 +202,7 @@ export class SolidWorksAPI {
     return dimension.SystemValue * 1000; // Convert m to mm
   }
   
-  async setDimension(name: string, value: number): Promise<void> {
+  setDimension(name: string, value: number): void {
     if (!this.currentModel) throw new Error('No model open');
     
     const dimension = this.currentModel.Parameter(name);
@@ -215,7 +215,7 @@ export class SolidWorksAPI {
   }
   
   // Export operations
-  async exportFile(filePath: string, format: string): Promise<void> {
+  exportFile(filePath: string, format: string): void {
     if (!this.currentModel) throw new Error('No model open');
     
     const formatMap: Record<string, number> = {
@@ -244,7 +244,7 @@ export class SolidWorksAPI {
   }
   
   // VBA operations
-  async runMacro(macroPath: string, moduleName: string, procedureName: string, args: any[] = []): Promise<any> {
+  runMacro(macroPath: string, moduleName: string, procedureName: string, args: any[] = []): any {
     if (!this.swApp) throw new Error('Not connected to SolidWorks');
     
     const result = this.swApp.RunMacro2(
@@ -259,7 +259,7 @@ export class SolidWorksAPI {
   }
   
   // Mass properties
-  async getMassProperties(): Promise<any> {
+  getMassProperties(): any {
     if (!this.currentModel) throw new Error('No model open');
     
     const massProps = this.currentModel.Extension.CreateMassProperty();

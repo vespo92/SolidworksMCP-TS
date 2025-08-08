@@ -8,7 +8,6 @@ import mssql from 'mssql';
 import { logger } from '../utils/logger.js';
 
 export interface DBConnection {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   query(sql: string, params?: any[]): Promise<any[]>;
   close(): Promise<void>;
 }
