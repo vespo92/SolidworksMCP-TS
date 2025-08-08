@@ -54,12 +54,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vinnieespo/solidworks-mcp-server.git"
+    "url": "git+https://github.com/vespo92/SolidworksMCP-TS.git"
   },
   "bugs": {
-    "url": "https://github.com/vinnieespo/solidworks-mcp-server/issues"
+    "url": "https://github.com/vespo92/SolidworksMCP-TS/issues"
   },
-  "homepage": "https://github.com/vinnieespo/solidworks-mcp-server#readme",
+  "homepage": "https://github.com/vespo92/SolidworksMCP-TS#readme",
   "files": [
     "dist/",
     "README.md",
