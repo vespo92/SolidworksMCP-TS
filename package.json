@@ -1,11 +1,11 @@
 {
-  "name": "mcp-server-solidworks-ts",
-  "version": "1.0.0",
-  "description": "MCP server for SolidWorks CAD automation with VBA generation",
+  "name": "solidworks-mcp-server",
+  "version": "2.0.0",
+  "description": "Comprehensive MCP server for SolidWorks with macro recording, SQL design tables, and PDM integration",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "mcp-server-solidworks": "./dist/index.js"
+    "solidworks-mcp-server": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -19,14 +19,22 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",
-    "winax": "^3.4.2",
     "chromadb": "^1.8.1",
+    "dotenv": "^16.4.5",
     "handlebars": "^4.7.8",
-    "zod": "^3.23.8",
-    "dotenv": "^16.4.5"
+    "mssql": "^11.0.0",
+    "pg": "^8.16.0",
+    "uuid": "^11.0.0",
+    "winax": "^3.4.2",
+    "winston": "^3.15.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@types/mssql": "^9.1.7",
     "@types/node": "^22.5.1",
+    "@types/pg": "^8.15.5",
+    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.4.0",
     "@typescript-eslint/parser": "^8.4.0",
     "eslint": "^9.9.1",
@@ -42,6 +50,27 @@
     "automation",
     "vba"
   ],
-  "author": "Your Name",
-  "license": "MIT"
+  "author": "Vinnie Esposito <vinnie@solidworksmcp.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vinnieespo/solidworks-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vinnieespo/solidworks-mcp-server/issues"
+  },
+  "homepage": "https://github.com/vinnieespo/solidworks-mcp-server#readme",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }

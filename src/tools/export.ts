@@ -86,7 +86,7 @@ export const exportTools = [
         // Set export options based on format
         if (args.format === 'stl' && args.options.quality) {
           const qualityMap = { coarse: 1, fine: 10, custom: 5 };
-          model.Extension.SetUserPreferenceInteger(8, 0, qualityMap[args.options.quality]);
+          model.Extension.SetUserPreferenceInteger(8, 0, qualityMap[args.options.quality as keyof typeof qualityMap]);
         }
         
         await swApi.exportFile(args.outputPath, args.format);

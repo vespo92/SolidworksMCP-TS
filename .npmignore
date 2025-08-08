@@ -1,55 +1,54 @@
-# Source files (only ship built files)
+# Source files
 src/
 *.ts
 !*.d.ts
 
-# Configuration files
-.gitignore
-.eslintrc*
-.prettierrc*
-tsconfig.json
-vitest.config.*
-
 # Development files
-examples/
-scripts/setup.js
-docs/
-*.md
-!README.md
-!LICENSE
+.env
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
 
 # Test files
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
 __tests__/
-test/
-tests/
-*.test.*
-*.spec.*
+coverage/
+
+# Build files
+tsconfig.json
+.eslintrc*
+.prettierrc*
+vitest.config.*
+
+# Git files
+.git/
+.gitignore
 
 # IDE files
 .vscode/
 .idea/
+*.sublime-*
+*.swp
+*.swo
 
 # OS files
 .DS_Store
 Thumbs.db
 
-# Environment files
-.env*
+# State files
+.solidworks-state.json
+*.state.json
 
-# Git files
-.git/
-.gitattributes
+# Documentation source
+docs/
 
-# CI/CD
-.github/
-.travis.yml
-.circleci/
+# Node modules
+node_modules/
 
-# Logs
-*.log
-logs/
-
-# Development dependencies info
-yarn.lock
-package-lock.json
-pnpm-lock.yaml
+# Build artifacts that shouldn't be published
+*.map
+*.tsbuildinfo

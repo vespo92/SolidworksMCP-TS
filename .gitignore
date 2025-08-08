@@ -1,68 +1,63 @@
-# Node
+# Dependencies
 node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 lerna-debug.log*
-.pnpm-debug.log*
 
-# TypeScript
-dist/
-*.tsbuildinfo
+# OS files
+.DS_Store
+Thumbs.db
 
-# IDE
+# IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Logs
-logs/
-*.log
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
 # Testing
 coverage/
-.nyc_output/
+.nyc_output
 
-# Build
-build/
-out/
-
-# SolidWorks
-*.SLDPRT
-*.SLDASM
-*.SLDDRW
-*.sldprt
-*.sldasm
-*.slddrw
-*.slddrt
+# State files
+.solidworks-state.json
+*.state.json
 
 # Temporary files
 *.tmp
 *.temp
-*.bak
-*.old
+.cache/
 
-# Credentials
-*.pem
-*.key
-*.cert
-*.crt
-secrets/
-credentials/
+# npm pack output
+*.tgz
 
-# Local configuration overrides
-claude-config-local.json
-config.local.json
+# Python virtualenv (for any Python integrations)
+venv/
+__pycache__/
+*.pyc
+EOF < /dev/null

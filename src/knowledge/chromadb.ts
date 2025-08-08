@@ -1,4 +1,5 @@
 import { ChromaClient } from 'chromadb';
+import { logger } from '../utils/logger.js';
 import { config } from '../utils/config.js';
 
 export class SolidWorksKnowledgeBase {
@@ -19,7 +20,7 @@ export class SolidWorksKnowledgeBase {
         metadata: { description: 'SolidWorks operation history and patterns' },
       });
     } catch (error) {
-      console.warn('ChromaDB not available, running without knowledge base');
+      logger.warn('ChromaDB not available, running without knowledge base');
     }
   }
   
@@ -43,7 +44,7 @@ export class SolidWorksKnowledgeBase {
         }],
       });
     } catch (error) {
-      console.error('Failed to record operation:', error);
+      logger.error('Failed to record operation', error);
     }
   }
   
@@ -62,7 +63,7 @@ export class SolidWorksKnowledgeBase {
         distance: results.distances[0][i],
       }));
     } catch (error) {
-      console.error('Failed to query operations:', error);
+      logger.error('Failed to query operations', error);
       return [];
     }
   }
@@ -78,11 +79,11 @@ export class SolidWorksKnowledgeBase {
       });
       
       const total = results.metadatas[0].length;
-      const successful = results.metadatas[0].filter(m => m.success === 'true').length;
+      const successful = results.metadatas[0].filter((m: any) => m.success === 'true').length;
       
       return total > 0 ? (successful / total) * 100 : 0;
     } catch (error) {
-      console.error('Failed to calculate success rate:', error);
+      logger.error('Failed to calculate success rate', error);
       return 0;
     }
   }

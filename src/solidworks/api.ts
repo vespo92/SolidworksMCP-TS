@@ -1,5 +1,8 @@
-import { createActiveXObject } from 'winax';
+// @ts-ignore - winax module doesn't have proper TypeScript definitions
+import winax from 'winax';
+const { createActiveXObject } = winax as any;
 import { SolidWorksModel, SolidWorksFeature, SolidWorksDrawing } from './types.js';
+import { logger } from '../utils/logger.js';
 
 export class SolidWorksAPI {
   private swApp: any;
@@ -15,7 +18,7 @@ export class SolidWorksAPI {
       // Create or get running instance of SolidWorks
       this.swApp = createActiveXObject('SldWorks.Application');
       this.swApp.Visible = true;
-      console.log('Connected to SolidWorks');
+      logger.info('Connected to SolidWorks');
     } catch (error) {
       throw new Error(`Failed to connect to SolidWorks: ${error}`);
     }
@@ -64,7 +67,7 @@ export class SolidWorksAPI {
     return {
       path: filePath,
       name: this.currentModel.GetTitle(),
-      type: ['Part', 'Assembly', 'Drawing'][docType - 1],
+      type: (['Part', 'Assembly', 'Drawing'][docType - 1] as 'Part' | 'Assembly' | 'Drawing'),
       isActive: true,
     };
   }
@@ -97,6 +100,53 @@ export class SolidWorksAPI {
       type: 'Part',
       isActive: true,
     };
+  }
+  
+  // Macro support methods
+  async createSketch(params: any): Promise<any> {
+    if (!this.currentModel) throw new Error('No active model');
+    
+    const { plane = 'Front' } = params;
+    const planeRef = this.currentModel.FeatureManager.GetPlane(plane);
+    
+    if (planeRef) {
+      this.currentModel.SketchManager.InsertSketch(true);
+      const sketchName = this.currentModel.SketchManager.ActiveSketch.Name;
+      return { success: true, sketchId: sketchName };
+    }
+    
+    return { success: false, error: 'Failed to create sketch' };
+  }
+  
+  async addLine(params: any): Promise<any> {
+    if (!this.currentModel) throw new Error('No active model');
+    
+    const { x1 = 0, y1 = 0, z1 = 0, x2 = 100, y2 = 0, z2 = 0 } = params;
+    
+    const line = this.currentModel.SketchManager.CreateLine(
+      x1 / 1000, y1 / 1000, z1 / 1000,  // Convert mm to m
+      x2 / 1000, y2 / 1000, z2 / 1000
+    );
+    
+    if (line) {
+      return { success: true, lineId: `line_${Date.now()}` };
+    }
+    
+    return { success: false, error: 'Failed to create line' };
+  }
+  
+  async extrude(params: any): Promise<any> {
+    if (!this.currentModel) throw new Error('No active model');
+    
+    const { depth = 25, reverse = false, draft = 0 } = params;
+    
+    const feature = await this.createExtrude(depth, draft, reverse);
+    
+    if (feature) {
+      return { success: true, featureId: feature.name };
+    }
+    
+    return { success: false, error: 'Failed to create extrusion' };
   }
   
   // Feature operations
