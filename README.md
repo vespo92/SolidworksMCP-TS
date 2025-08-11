@@ -1,6 +1,36 @@
-# SolidWorks MCP Server v2.0
+# SolidWorks MCP Server
+
+<div align="center">
+
+[![CI](https://github.com/vespo92/SolidworksMCP-TS/actions/workflows/ci.yml/badge.svg)](https://github.com/vespo92/SolidworksMCP-TS/actions/workflows/ci.yml)
+[![npm version](https://badge.fury.io/js/solidworks-mcp-server.svg)](https://www.npmjs.com/package/solidworks-mcp-server)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green?logo=anthropic)](https://modelcontextprotocol.com)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/vespo92/SolidworksMCP-TS/pulls)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/vespo92/SolidworksMCP-TS/graphs/commit-activity)
+
+</div>
 
 A comprehensive Model Context Protocol (MCP) server that enables AI assistants to interact with SolidWorks CAD software, providing automated design capabilities, macro recording, design tables with SQL integration, VBA generation, and PDM configuration management.
+
+## 🎯 Quick Start
+
+```bash
+# Install globally
+npm install -g solidworks-mcp-server
+
+# The installer will automatically configure Claude Desktop
+# Restart Claude Desktop and you're ready to go!
+```
+
+Then in Claude Desktop:
+```
+"Generate VBA to batch export all parts in my folder to STEP format"
+"Create a parametric design table for a configurable bracket"
+"Check for interferences in my assembly"
+```
 
 ## 🚀 Key Features
 
@@ -13,7 +43,15 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 - **State Management** - Persistent resource states with auto-save
 - **Resource-Based Architecture** - Modular, extensible design pattern
 
-### New in v2.0
+### New in v2.1.0 - Comprehensive VBA Generation Suite
+- 🔧 **Part Modeling VBA** - Advanced features, patterns, sheet metal, surfaces
+- 🏗️ **Assembly Automation** - Mates, components, interference analysis
+- 📐 **Drawing Generation** - Views, dimensions, annotations, tables
+- 📁 **File & PDM Operations** - Batch processing, custom properties, vault management
+- ⚙️ **Advanced Features** - Configurations, equations, simulation setup
+- 🎯 **100+ VBA Tools** - Generate production-ready VBA without coding knowledge
+
+### Enterprise Features (v2.0)
 - 🎯 **Macro Recording System** - Record actions and export to VBA
 - 📊 **SQL-Driven Design Tables** - Connect to databases for parametric designs
 - 🗄️ **PDM Configuration** - Manage vault operations, workflows, and automation
@@ -113,14 +151,43 @@ LOG_LEVEL=info
 "Create folder structure with permissions for project team"
 ```
 
-### Advanced VBA Generation
+### Advanced VBA Generation (v2.1.0)
 
+#### Part Modeling
 ```
-"Generate VBA script that:
-1. Opens all parts in folder
-2. Updates material to Aluminum
-3. Runs stress analysis
-4. Exports results to Excel"
+"Generate VBA to create a parametric bracket with:
+- Reference planes offset by 50mm
+- Sweep feature along a 3D curve
+- Linear pattern with 5 instances
+- Sheet metal conversion with 2mm thickness"
+```
+
+#### Assembly Automation
+```
+"Generate VBA for assembly that:
+- Inserts components from a folder
+- Creates coincident and distance mates
+- Checks for interferences
+- Exports mass properties to Excel"
+```
+
+#### Batch Operations
+```
+"Generate VBA to process all files in C:\Parts that:
+- Opens each SLDPRT file
+- Updates custom properties (Part Number, Revision)
+- Exports to STEP format
+- Checks into PDM vault with comment"
+```
+
+#### Drawing Automation
+```
+"Generate VBA to create drawings that:
+- Creates standard 3-view layout
+- Adds section view A-A
+- Dimensions all features
+- Inserts BOM table
+- Exports to PDF"
 ```
 
 ## 🔧 Available Tools

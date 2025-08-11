@@ -14,7 +14,7 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "prepare": "npm run build",
+    "prepare": "node -e \"if (!process.env.CI) { require('child_process').execSync('npm run build', {stdio: 'inherit'}); }\"",
     "postinstall": "node scripts/setup.js"
   },
   "dependencies": {
