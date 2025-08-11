@@ -4,6 +4,12 @@ import { homedir } from 'os';
 import { join } from 'path';
 
 async function updateClaudeConfig() {
+  // Skip in CI environments
+  if (process.env.CI || process.env.GITHUB_ACTIONS) {
+    console.log('⏭️  Skipping Claude Desktop setup in CI environment');
+    return;
+  }
+  
   console.log('🔧 Setting up SolidWorks MCP Server for Claude Desktop...\n');
   
   // Find Claude config file

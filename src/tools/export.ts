@@ -54,7 +54,7 @@ export const exportTools = [
           // Export current state
           const filename = `${args.prefix || ''}${modelName}.${args.format}`;
           const outputPath = join(args.outputDir, filename);
-          await swApi.exportFile(outputPath, args.format);
+          swApi.exportFile(outputPath, args.format);
           exported.push(outputPath);
         }
         
