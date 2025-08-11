@@ -5,6 +5,13 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { SolidWorksAPI } from '../solidworks/api.js';
 
+// Import all VBA generation modules
+import { partModelingVBATools } from './vba-part.js';
+import { assemblyVBATools } from './vba-assembly.js';
+import { drawingVBATools } from './vba-drawing.js';
+import { fileManagementVBATools } from './vba-file-management.js';
+import { advancedVBATools } from './vba-advanced.js';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // VBA template compiler
@@ -14,8 +21,8 @@ const compileTemplate = (templateName: string): any => {
   return Handlebars.compile(templateContent);
 };
 
-// Tool definitions
-export const vbaTools = [
+// Original VBA tools
+const originalVBATools = [
   {
     name: 'generate_vba_script',
     description: 'Generate a VBA script from a template with parameters',
@@ -168,4 +175,14 @@ End Sub`,
       });
     },
   },
+];
+
+// Combine all VBA tools into a comprehensive set
+export const vbaTools = [
+  ...originalVBATools,
+  ...partModelingVBATools,
+  ...assemblyVBATools,
+  ...drawingVBATools,
+  ...fileManagementVBATools,
+  ...advancedVBATools
 ];
