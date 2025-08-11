@@ -630,7 +630,7 @@ Sub ManageDrawingSheet_${args.operation}()
     ${args.operation === 'create_sheet' ? `
     ' Create new sheet
     bRet = swDraw.NewSheet4( _
-        "${args.sheetName || 'Sheet' + (swDraw.GetSheetCount() + 1)}", _
+        "${args.sheetName || 'NewSheet'}", _
         ${args.sheetSize && args.sheetSize !== 'Custom' ? 
           `swDwgPaperSizes_e.swDwgPaper${args.sheetSize}size` : 
           'swDwgPaperSizes_e.swDwgPapersUserDefined'}, _

@@ -47,7 +47,7 @@ Sub ManageConfiguration_${args.operation}()
         "", _
         swConfigurationOptions2_e.swConfigOption_LinkToParent + _
         swConfigurationOptions2_e.swConfigOption_InheritProperties, _
-        "${args.parentConfig || swConfigMgr.ActiveConfiguration.Name}")
+        "${args.parentConfig || ''}")
     
     If Not swConfig Is Nothing Then
         ' Activate configuration
@@ -443,7 +443,7 @@ Public Sub Init(app As SldWorks.SldWorks, model As SldWorks.ModelDoc2)
     End If
 End Sub
 
-${args.eventTypes ? args.eventTypes.map(evt => eventHandlers[evt] || '').join('\n\n') : ''}
+${args.eventTypes ? args.eventTypes.map((evt: string) => eventHandlers[evt] || '').join('\n\n') : ''}
 
 ' Cleanup
 Public Sub Terminate()

@@ -539,7 +539,7 @@ Sub ManageConfiguration_${args.operation}()
         "", _
         swConfigurationOptions2_e.swConfigOption_LinkToParent + _
         swConfigurationOptions2_e.swConfigOption_InheritProperties, _
-        "${args.parentConfig || swConfigMgr.ActiveConfiguration.Name}")
+        "${args.parentConfig || ''}")
     
     If Not swConfig Is Nothing Then
         ' Activate new configuration

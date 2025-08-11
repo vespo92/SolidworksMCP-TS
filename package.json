@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@types/dotenv": "^6.1.1",
     "@types/mssql": "^9.1.7",
     "@types/node": "^22.5.1",
     "@types/pg": "^8.15.5",
