@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-01-19
+
+### Fixed
+- **Critical: Handlebars Helper Registration** - Added all necessary Handlebars helpers (eq, ne, lt, gt, lte, gte, and, or, not) to fix VBA generation tools
+- **Template Name Mismatch** - Fixed batch_export template mapping and created proper batch_export.vba template
+- **Rebuild Model API** - Updated to use correct SolidWorks API methods (ForceRebuild3, EditRebuild, Rebuild) with fallback strategies
+- **Close Model Error Handling** - Added safe error handling for title retrieval preventing COM object access errors
+- **Export File Robustness** - Enhanced export functionality with format-specific handling and retry logic
+- **Mass Properties Extraction** - Improved getMassProperties with comprehensive error handling
+
+### Added
+- batch_export.vba template for batch export operations
+- Debug scripts (debug-server.mjs, debug-wrapper.mjs, test-fixes.mjs) for troubleshooting
+- SWChecklist.md comprehensive testing checklist
+- zod-to-json-schema dependency for schema validation
+- ensureCurrentModel helper method in api.ts
+
+### Improved
+- Enhanced error handling across all API methods with multiple fallback strategies
+- Better COM object access patterns for Windows SolidWorks compatibility
+- Template compilation with proper error recovery
+- API compatibility for different SolidWorks versions
+
 ## [2.1.0] - 2025-01-11
 
 ### Added

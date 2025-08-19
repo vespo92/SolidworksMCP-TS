@@ -40,8 +40,27 @@ export const modelingTools = [
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
+        // FIX: Safely handle model closing
+        const currentModel = swApi.getCurrentModel();
+        if (!currentModel) {
+          return 'No active model to close';
+        }
+        
+        // Get title safely before closing
+        let modelTitle = 'Unknown';
+        try {
+          if (currentModel.GetTitle) {
+            modelTitle = currentModel.GetTitle();
+          } else if (currentModel.GetPathName) {
+            const path = currentModel.GetPathName();
+            modelTitle = path ? path.split('\\').pop() || 'Unknown' : 'Unknown';
+          }
+        } catch (e) {
+          // Title might not be available
+        }
+        
         swApi.closeModel(args.save);
-        return 'Model closed successfully';
+        return `Model "${modelTitle}" closed successfully`;
       } catch (error) {
         return `Failed to close model: ${error}`;
       }
@@ -110,7 +129,42 @@ export const modelingTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
         
-        model.EditRebuild3();
+        // FIX: Use correct SolidWorks API methods
+        let success = false;
+        
+        if (args.force) {
+          // Use ForceRebuild3 for forced rebuild
+          try {
+            success = model.ForceRebuild3(false); // false = top level only
+          } catch (e) {
+            // If ForceRebuild3 doesn't exist, try ForceRebuild
+            try {
+              model.ForceRebuild();
+              success = true;
+            } catch (e2) {
+              // Fall back to EditRebuild
+              success = model.EditRebuild();
+            }
+          }
+        } else {
+          // Use EditRebuild for normal rebuild
+          try {
+            success = model.EditRebuild();
+          } catch (e) {
+            // Try alternative methods
+            try {
+              model.Rebuild(1); // 1 = swRebuildAll
+              success = true;
+            } catch (e2) {
+              throw new Error('Rebuild method not available');
+            }
+          }
+        }
+        
+        if (!success && success !== undefined) {
+          throw new Error('Rebuild failed');
+        }
+        
         return 'Model rebuilt successfully';
       } catch (error) {
         return `Failed to rebuild model: ${error}`;

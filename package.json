@@ -1,6 +1,6 @@
 {
   "name": "solidworks-mcp-server",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Comprehensive MCP server for SolidWorks with macro recording, SQL design tables, and PDM integration",
   "type": "module",
   "main": "dist/index.js",
@@ -27,7 +27,8 @@
     "uuid": "^11.0.0",
     "winax": "^3.4.2",
     "winston": "^3.15.0",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
@@ -63,6 +64,7 @@
   "homepage": "https://github.com/vespo92/SolidworksMCP-TS#readme",
   "files": [
     "dist/",
+    "scripts/",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

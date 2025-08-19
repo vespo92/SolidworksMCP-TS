@@ -75,11 +75,42 @@ export class SolidWorksAPI {
   closeModel(save: boolean = false): void {
     if (!this.currentModel) return;
     
-    if (save) {
-      this.currentModel.Save3(1, 0, 0); // swSaveAsOptions_Silent
+    let modelTitle = '';
+    try {
+      // Safely get the title
+      if (this.currentModel.GetTitle) {
+        modelTitle = this.currentModel.GetTitle();
+      } else if (this.currentModel.GetPathName) {
+        modelTitle = this.currentModel.GetPathName();
+      }
+    } catch (e) {
+      // If we can't get the title, continue anyway
+      modelTitle = 'Unknown';
     }
     
-    this.swApp.CloseDoc(this.currentModel.GetTitle());
+    if (save) {
+      try {
+        this.currentModel.Save3(1, 0, 0); // swSaveAsOptions_Silent
+      } catch (e) {
+        // Save might fail if document is new and has no path
+        try {
+          // Try Save instead
+          this.currentModel.Save();
+        } catch (e2) {
+          // Continue even if save fails
+        }
+      }
+    }
+    
+    // Close using app method if title is available
+    if (modelTitle && modelTitle !== 'Unknown' && this.swApp) {
+      try {
+        this.swApp.CloseDoc(modelTitle);
+      } catch (e) {
+        // Fallback: just clear the reference
+      }
+    }
+    
     this.currentModel = null;
   }
   
@@ -157,37 +188,93 @@ export class SolidWorksAPI {
   ): SolidWorksFeature {
     if (!this.currentModel) throw new Error('No model open');
     
-    const feature = this.currentModel.FeatureManager.FeatureExtrusion3(
-      true, // sd
-      reverse, // flip
-      false, // dir
-      0, // t1
-      0, // t2
-      depth / 1000, // convert mm to m
-      0.01, // d2
-      false, // dchk1
-      false, // dchk2
-      false, // dang
-      draft * Math.PI / 180, // convert degrees to radians
-      0, // d2ang
-      false, // offsetReverse1
-      false, // offsetReverse2
-      false, // translateSurface1
-      false, // translateSurface2
-      false, // merge
-      true, // useFeatScope
-      true // useAutoSelect
-    );
-    
-    if (!feature) {
-      throw new Error('Failed to create extrusion');
+    try {
+      // Get the feature manager
+      const featureMgr = this.currentModel.FeatureManager;
+      if (!featureMgr) {
+        throw new Error('Cannot access FeatureManager');
+      }
+      
+      // Try different extrusion methods based on what's available
+      let feature = null;
+      
+      try {
+        // Method 1: Try FeatureExtrusion3 with all parameters
+        feature = featureMgr.FeatureExtrusion3(
+          true,    // SingleEndedFeature
+          reverse, // ReverseDirection
+          false,   // UseDirection2
+          0,       // EndCondition1 (0 = blind)
+          0,       // EndCondition2 
+          depth / 1000, // Depth1 (convert mm to m)
+          0.01,    // Depth2
+          false,   // RevOffset1
+          false,   // RevOffset2
+          false,   // ThinFeature
+          draft * Math.PI / 180, // DraftAngle1 (convert to radians)
+          0,       // DraftAngle2
+          false,   // DraftOutward1
+          false,   // DraftOutward2
+          false,   // DraftWhileDrag1
+          false,   // DraftWhileDrag2
+          false,   // ReverseOffset1Dir
+          true,    // TranslateSurface1
+          false,   // NormalToCurve
+          0,       // StartCondition
+          0,       // SketchPlane
+          false    // FlipStartDirection
+        );
+      } catch (e) {
+        // Method 2: Try FeatureExtrusion2 with fewer parameters
+        try {
+          feature = featureMgr.FeatureExtrusion2(
+            true,    // SingleEndedFeature
+            reverse, // ReverseDirection
+            false,   // UseDirection2
+            0,       // EndCondition1
+            0,       // EndCondition2
+            depth / 1000, // Depth1
+            0.01,    // Depth2
+            false,   // RevOffset1
+            false,   // RevOffset2
+            false,   // ThinFeature
+            draft * Math.PI / 180, // DraftAngle1
+            0,       // DraftAngle2
+            false,   // DraftOutward1
+            false    // DraftOutward2
+          );
+        } catch (e2) {
+          // Method 3: Try the simplest FeatureExtrusion
+          feature = featureMgr.FeatureExtrusion(
+            true,
+            reverse,
+            0,
+            depth / 1000,
+            0,
+            0,
+            true,
+            false,
+            false,
+            draft * Math.PI / 180,
+            0,
+            false,
+            false
+          );
+        }
+      }
+      
+      if (!feature) {
+        throw new Error('Failed to create extrusion - ensure a sketch is selected');
+      }
+      
+      return {
+        name: feature.Name,
+        type: 'Extrusion',
+        suppressed: false,
+      };
+    } catch (error) {
+      throw new Error(`Extrusion failed: ${error}`);
     }
-    
-    return {
-      name: feature.Name,
-      type: 'Extrusion',
-      suppressed: false,
-    };
   }
   
   // Dimension operations
@@ -218,28 +305,114 @@ export class SolidWorksAPI {
   exportFile(filePath: string, format: string): void {
     if (!this.currentModel) throw new Error('No model open');
     
-    const formatMap: Record<string, number> = {
-      'step': 0,
-      'iges': 1,
-      'stl': 2,
-      'pdf': 3,
-      'dxf': 4,
-      'dwg': 5,
-    };
-    
-    const exportFormat = formatMap[format.toLowerCase()];
-    if (exportFormat === undefined) {
-      throw new Error(`Unsupported export format: ${format}`);
-    }
-    
-    const success = this.currentModel.SaveAs3(
-      filePath,
-      0, // version
-      1 // options
-    );
-    
-    if (!success) {
-      throw new Error(`Failed to export to ${format}`);
+    try {
+      // Ensure the model is saved first
+      const currentPath = this.currentModel.GetPathName();
+      if (!currentPath || currentPath === '') {
+        // Save the model first if it hasn't been saved
+        const docType = this.currentModel.GetType();
+        const ext = docType === 1 ? '.SLDPRT' : docType === 2 ? '.SLDASM' : '.SLDDRW';
+        const tempPath = filePath.replace(/\.[^.]+$/, ext);
+        this.currentModel.SaveAs3(tempPath, 0, 1);
+      }
+      
+      const ext = format.toLowerCase();
+      let success = false;
+      
+      // Try to get export data
+      let exportData = null;
+      try {
+        exportData = this.swApp.GetExportFileData(1); // 1 = current config only
+      } catch (e) {
+        // Export data might not be available for all formats
+      }
+      
+      switch(ext) {
+        case 'step':
+        case 'stp':
+          if (exportData) {
+            try {
+              exportData.SetStep203(true); // Use STEP AP203
+            } catch (e) {
+              // Method might not exist
+            }
+          }
+          // Try Extension.SaveAs first
+          try {
+            success = this.currentModel.Extension.SaveAs(
+              filePath, 
+              0, // version
+              1, // options
+              exportData,
+              0, // errors
+              0  // warnings
+            );
+          } catch (e) {
+            // Fall back to SaveAs3
+            success = this.currentModel.SaveAs3(filePath, 0, 1);
+          }
+          break;
+          
+        case 'iges':
+        case 'igs':
+          success = this.currentModel.SaveAs3(filePath, 0, 1);
+          break;
+          
+        case 'stl':
+          // STL specific - try SaveAs4 for STL options
+          try {
+            success = this.currentModel.SaveAs4(
+              filePath,
+              0, // Version
+              1, // Options
+              0, // Errors
+              0  // Warnings
+            );
+          } catch (e) {
+            success = this.currentModel.SaveAs3(filePath, 0, 1);
+          }
+          break;
+          
+        case 'pdf':
+          // PDF export requires drawing
+          const docType = this.currentModel.GetType();
+          if (docType !== 3) { // 3 = swDocDRAWING
+            throw new Error('PDF export requires a drawing document');
+          }
+          // Try ExportPdfData if available
+          try {
+            const pdfData = this.swApp.GetExportFileData(1);
+            success = this.currentModel.SaveAs3(filePath, 0, 1);
+          } catch (e) {
+            success = this.currentModel.SaveAs3(filePath, 0, 1);
+          }
+          break;
+          
+        case 'dxf':
+        case 'dwg':
+          // DXF/DWG export
+          success = this.currentModel.SaveAs3(filePath, 0, 1);
+          break;
+          
+        default:
+          // Try generic export
+          success = this.currentModel.SaveAs3(filePath, 0, 1);
+      }
+      
+      if (!success) {
+        // Try one more time with SaveAs2
+        try {
+          success = this.currentModel.SaveAs2(filePath, 0, true, false);
+        } catch (e) {
+          throw new Error(`Failed to export to ${format}`);
+        }
+      }
+      
+      if (!success) {
+        throw new Error(`Failed to export to ${format}`);
+      }
+    } catch (error) {
+      throw new Error(`Export failed: ${error}`);
     }
   }
   
@@ -260,20 +433,134 @@ export class SolidWorksAPI {
   
   // Mass properties
   getMassProperties(): any {
+    this.ensureCurrentModel();
     if (!this.currentModel) throw new Error('No model open');
     
-    const massProps = this.currentModel.Extension.CreateMassProperty();
+    // Check document type - mass properties only work for parts and assemblies
+    const docType = this.currentModel.GetType();
+    if (docType !== 1 && docType !== 2) { // 1=Part, 2=Assembly
+      throw new Error('Mass properties only available for parts and assemblies');
+    }
     
-    return {
-      mass: massProps.Mass,
-      volume: massProps.Volume,
-      surfaceArea: massProps.SurfaceArea,
-      centerOfMass: {
-        x: massProps.CenterOfMass[0],
-        y: massProps.CenterOfMass[1],
-        z: massProps.CenterOfMass[2],
-      },
-    };
+    try {
+      // Get the modeler extension
+      const modeler = this.currentModel.Extension;
+      if (!modeler) {
+        throw new Error('Cannot access model extension');
+      }
+      
+      // Create mass property object
+      let massProps = null;
+      
+      try {
+        // Method 1: Try CreateMassProperty
+        massProps = modeler.CreateMassProperty();
+      } catch (e) {
+        // Method 2: Try CreateMassProperty2
+        try {
+          massProps = modeler.CreateMassProperty2();
+        } catch (e2) {
+          // Method 3: Try getting it from the model directly
+          massProps = this.currentModel.GetMassProperties();
+        }
+      }
+      
+      if (!massProps) {
+        throw new Error('Failed to create mass property object');
+      }
+      
+      // Update mass properties if method exists
+      try {
+        if (massProps.Update) {
+          const success = massProps.Update();
+          if (!success) {
+            // Try recalculate
+            if (massProps.Recalculate) {
+              massProps.Recalculate();
+            }
+          }
+        }
+      } catch (e) {
+        // Update might not be needed
+      }
+      
+      // Get the values with error handling
+      const result: any = {};
+      
+      try {
+        result.mass = massProps.Mass;
+      } catch (e) {
+        result.mass = 0;
+      }
+      
+      try {
+        result.volume = massProps.Volume;
+      } catch (e) {
+        result.volume = 0;
+      }
+      
+      try {
+        result.surfaceArea = massProps.SurfaceArea;
+      } catch (e) {
+        result.surfaceArea = 0;
+      }
+      
+      try {
+        const com = massProps.CenterOfMass;
+        if (com && Array.isArray(com) && com.length >= 3) {
+          result.centerOfMass = {
+            x: com[0] * 1000, // Convert to mm
+            y: com[1] * 1000,
+            z: com[2] * 1000,
+          };
+        } else {
+          result.centerOfMass = { x: 0, y: 0, z: 0 };
+        }
+      } catch (e) {
+        result.centerOfMass = { x: 0, y: 0, z: 0 };
+      }
+      
+      try {
+        result.density = massProps.Density;
+      } catch (e) {
+        result.density = 0;
+      }
+      
+      try {
+        const moi = massProps.MomentOfInertia;
+        if (moi && Array.isArray(moi) && moi.length >= 9) {
+          result.momentsOfInertia = {
+            Ixx: moi[0],
+            Ixy: moi[1],
+            Ixz: moi[2],
+            Iyx: moi[3],
+            Iyy: moi[4],
+            Iyz: moi[5],
+            Izx: moi[6],
+            Izy: moi[7],
+            Izz: moi[8]
+          };
+        }
+      } catch (e) {
+        // Moments of inertia might not be available
+      }
+      
+      return result;
+    } catch (error) {
+      throw new Error(`Failed to get mass properties: ${error}`);
+    }
+  }
+  
+  // Helper to ensure current model is set
+  private ensureCurrentModel(): void {
+    if (!this.currentModel && this.swApp) {
+      // Try to get the active document
+      try {
+        this.currentModel = this.swApp.ActiveDoc;
+      } catch (e) {
+        // ActiveDoc might not be available
+      }
+    }
   }
   
   // Helper to get current model

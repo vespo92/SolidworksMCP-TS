@@ -14,11 +14,64 @@ import { advancedVBATools } from './vba-advanced.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// VBA template compiler
+// Register Handlebars helpers - CRITICAL FIX
+Handlebars.registerHelper('eq', function(a: any, b: any) {
+  return a === b;
+});
+
+Handlebars.registerHelper('ne', function(a: any, b: any) {
+  return a !== b;
+});
+
+Handlebars.registerHelper('lt', function(a: any, b: any) {
+  return a < b;
+});
+
+Handlebars.registerHelper('gt', function(a: any, b: any) {
+  return a > b;
+});
+
+Handlebars.registerHelper('lte', function(a: any, b: any) {
+  return a <= b;
+});
+
+Handlebars.registerHelper('gte', function(a: any, b: any) {
+  return a >= b;
+});
+
+Handlebars.registerHelper('and', function() {
+  return Array.prototype.slice.call(arguments, 0, -1).every(Boolean);
+});
+
+Handlebars.registerHelper('or', function() {
+  return Array.prototype.slice.call(arguments, 0, -1).some(Boolean);
+});
+
+Handlebars.registerHelper('not', function(a: any) {
+  return !a;
+});
+
+// VBA template compiler with template name mapping
 const compileTemplate = (templateName: string): any => {
-  const templatePath = join(__dirname, '../../examples/vba-templates', `${templateName}.vba`);
-  const templateContent = readFileSync(templatePath, 'utf-8');
-  return Handlebars.compile(templateContent);
+  // Map common names to actual file names
+  const templateMap: Record<string, string> = {
+    'batch_export': 'batch_process', // Fix template name mismatch
+    'create_drawing': 'create_drawing',
+    'modify_dimensions': 'modify_dimensions'
+  };
+  
+  const actualTemplateName = templateMap[templateName] || templateName;
+  const templatePath = join(__dirname, '../../examples/vba-templates', `${actualTemplateName}.vba`);
+  
+  try {
+    const templateContent = readFileSync(templatePath, 'utf-8');
+    return Handlebars.compile(templateContent);
+  } catch (error) {
+    // If template doesn't exist, try without mapping
+    const directPath = join(__dirname, '../../examples/vba-templates', `${templateName}.vba`);
+    const templateContent = readFileSync(directPath, 'utf-8');
+    return Handlebars.compile(templateContent);
+  }
 };
 
 // Original VBA tools
@@ -121,14 +174,18 @@ End Sub`,
       propertyValue: z.string().optional().describe('Property value for update operations'),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
-      const template = compileTemplate('batch_process');
-      return template({
-        operation: args.operation,
-        filePattern: args.filePattern,
-        outputFormat: args.outputFormat,
-        propertyName: args.propertyName,
-        propertyValue: args.propertyValue,
-      });
+      try {
+        const template = compileTemplate('batch_process');
+        return template({
+          operation: args.operation,
+          filePattern: args.filePattern,
+          outputFormat: args.outputFormat,
+          propertyName: args.propertyName,
+          propertyValue: args.propertyValue,
+        });
+      } catch (error) {
+        return `Failed to generate batch VBA: ${error}`;
+      }
     },
   },
   
@@ -166,13 +223,17 @@ End Sub`,
       sheet_size: z.enum(['A4', 'A3', 'A2', 'A1', 'A0', 'Letter', 'Tabloid']),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
-      const template = compileTemplate('create_drawing');
-      return template({
-        modelPath: args.modelPath,
-        drawingTemplate: args.template,
-        views: args.views,
-        sheetSize: args.sheet_size,
-      });
+      try {
+        const template = compileTemplate('create_drawing');
+        return template({
+          modelPath: args.modelPath,
+          drawingTemplate: args.template,
+          views: args.views,
+          sheetSize: args.sheet_size,
+        });
+      } catch (error) {
+        return `Failed to generate drawing VBA: ${error}`;
+      }
     },
   },
 ];
