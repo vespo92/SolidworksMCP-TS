@@ -1,7 +1,7 @@
 {
   "name": "solidworks-mcp-server",
-  "version": "2.2.0",
-  "description": "Comprehensive MCP server for SolidWorks with macro recording, SQL design tables, and PDM integration",
+  "version": "3.0.0",
+  "description": "Clean Architecture SolidWorks MCP Server - Production-ready with SOLID principles",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -9,13 +9,15 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:refactored": "tsc --project tsconfig.refactored.json",
     "dev": "tsx watch src/index.ts",
+    "dev:refactored": "tsx watch src/index.refactored.ts",
     "start": "node dist/index.js",
+    "start:refactored": "node dist/index.refactored.js",
+    "migrate": "tsx Fixes-V2/migrate.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "prepare": "node -e \"if (!process.env.CI) { require('child_process').execSync('npm run build', {stdio: 'inherit'}); }\"",
-    "postinstall": "node scripts/setup.js"
+    "test": "vitest"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",
@@ -50,9 +52,12 @@
     "solidworks",
     "cad",
     "automation",
-    "vba"
+    "vba",
+    "clean-architecture",
+    "solid-principles",
+    "production-ready"
   ],
-  "author": "Vinnie Esposito <vinnie@solidworksmcp.dev>",
+  "author": "SolidWorks MCP Contributors",
   "license": "MIT",
   "repository": {
     "type": "git",

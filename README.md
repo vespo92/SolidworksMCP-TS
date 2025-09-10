@@ -17,13 +17,26 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 
 ## 🎯 Quick Start
 
+### Option 1: Install from npm (Recommended)
 ```bash
-# Install globally
+# Install globally from npm registry
 npm install -g solidworks-mcp-server
-
-# The installer will automatically configure Claude Desktop
-# Restart Claude Desktop and you're ready to go!
 ```
+
+### Option 2: Manual Installation
+```bash
+# Clone the repository
+git clone https://github.com/vespo92/SolidworksMCP-TS
+cd SolidworksMCP-TS
+npm install
+npm run build
+
+# Link globally for use with Claude Desktop
+npm link
+```
+
+### Configure Claude Desktop
+After installation, add to your Claude Desktop config and restart Claude Desktop.
 
 Then in Claude Desktop:
 ```
@@ -44,6 +57,7 @@ Then in Claude Desktop:
 - **Resource-Based Architecture** - Modular, extensible design pattern
 
 ### New in v2.1.0 - Comprehensive VBA Generation Suite
+⚠️ **IMPORTANT: VBA script generation features are NOT WORKING in the current iteration and require additional testing**
 - 🔧 **Part Modeling VBA** - Advanced features, patterns, sheet metal, surfaces
 - 🏗️ **Assembly Automation** - Mates, components, interference analysis
 - 📐 **Drawing Generation** - Views, dimensions, annotations, tables
@@ -70,10 +84,20 @@ Then in Claude Desktop:
 
 ## 🛠️ Installation
 
-### 1. Install from npm
+### 1. Install the MCP Server
 
+#### From npm Registry (Recommended):
 ```bash
 npm install -g solidworks-mcp-server
+```
+
+#### Or Manual Installation:
+```bash
+git clone https://github.com/vespo92/SolidworksMCP-TS
+cd SolidworksMCP-TS
+npm install
+npm run build
+npm link  # Makes it available globally
 ```
 
 ### 2. Configure Claude Desktop
@@ -195,7 +219,7 @@ LOG_LEVEL=info
 ### Macro Tools
 - `macro_start_recording` - Begin recording operations
 - `macro_stop_recording` - End recording and save
-- `macro_export_vba` - Export macro to VBA code
+- `macro_export_vba` - Export macro to VBA code ⚠️ **NOT WORKING - Requires additional testing**
 - `macro_execute` - Run recorded macro
 
 ### Design Table Tools
@@ -223,7 +247,7 @@ All original tools remain available:
 - Modeling tools (create, modify, analyze)
 - Drawing tools (views, dimensions, annotations)
 - Export tools (STEP, IGES, STL, PDF, etc.)
-- VBA tools (generate, execute scripts)
+- VBA tools ⚠️ **NOTE: VBA script generation is NOT WORKING in the current iteration and requires additional testing**
 - Analysis tools (mass properties, interference)
 
 ## 📚 API Reference
@@ -275,7 +299,7 @@ All original tools remain available:
 ### Building from Source
 
 ```bash
-git clone https://github.com/vinnieespo/solidworks-mcp-server
+git clone https://github.com/vespo92/SolidworksMCP-TS
 cd solidworks-mcp-server
 npm install
 npm run build
@@ -373,9 +397,8 @@ We welcome contributions! Please see CONTRIBUTING.md for guidelines.
 
 ## 📞 Support
 
-- Issues: [GitHub Issues](https://github.com/vinnieespo/solidworks-mcp-server/issues)
-- Discussions: [GitHub Discussions](https://github.com/vinnieespo/solidworks-mcp-server/discussions)
-- Email: support@solidworksmcp.dev
+- Issues: [GitHub Issues](https://github.com/vespo92/SolidworksMCP-TS/issues)
+- Discussions: [GitHub Discussions](https://github.com/vespo92/SolidworksMCP-TS/discussions)
 
 ## 🚀 Roadmap
 
