@@ -17,6 +17,7 @@ import {
   McpError
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 import dotenv from 'dotenv';
 
 // Import logging
@@ -276,7 +277,7 @@ class SolidWorksMCPServer {
         tools: allTools.map(tool => ({
           name: tool.name,
           description: tool.description,
-          inputSchema: tool.inputSchema
+          inputSchema: zodToJsonSchema(tool.inputSchema)
         }))
       };
     });
@@ -480,7 +481,8 @@ async function main() {
 
 // Always run main when this file is executed
 main().catch((error) => {
-  console.error('Failed to start SolidWorks MCP Server:', error);
+  // Don't use console.error in MCP servers - it interferes with JSON-RPC
+  logError('Failed to start SolidWorks MCP Server', error);
   process.exit(1);
 });
 

@@ -1,8 +1,54 @@
 // @ts-ignore - winax module doesn't have proper TypeScript definitions
 import winax from 'winax';
-const { createActiveXObject } = winax as any;
 import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
+
+// Initialize winax to provide global ActiveXObject if available
+try {
+  // This makes ActiveXObject available globally in some winax versions
+  if (typeof winax === 'object' && !((global as any).ActiveXObject)) {
+    require('winax');
+  }
+} catch (e) {
+  // Ignore initialization errors, we'll handle them in createCOMObject
+}
+
+// Create a robust COM object factory that works with multiple patterns
+function createCOMObject(progId: string): any {
+  try {
+    // Method 1: Try winax.Object (standard API for winax 3.x)
+    if (winax && (winax as any).Object) {
+      logger.debug(`Creating COM object using winax.Object: ${progId}`);
+      return new (winax as any).Object(progId);
+    }
+    
+    // Method 2: Try global ActiveXObject (if winax made it global)
+    if (typeof (global as any).ActiveXObject !== 'undefined') {
+      logger.debug(`Creating COM object using global ActiveXObject: ${progId}`);
+      return new (global as any).ActiveXObject(progId);
+    }
+    
+    // Method 3: Direct winax call (some versions)
+    if (typeof winax === 'function') {
+      logger.debug(`Creating COM object using winax function: ${progId}`);
+      return (winax as any)(progId);
+    }
+    
+    // Method 4: Legacy support - if createActiveXObject was a custom wrapper
+    if ((winax as any).createActiveXObject) {
+      logger.debug(`Creating COM object using winax.createActiveXObject: ${progId}`);
+      return (winax as any).createActiveXObject(progId);
+    }
+    
+    throw new Error('No suitable COM object creation method found. Ensure winax is properly installed.');
+  } catch (error) {
+    logger.error(`Failed to create COM object ${progId}:`, error);
+    throw error;
+  }
+}
+
+// Export a compatibility function for legacy code
+export const createActiveXObject = createCOMObject;
 
 export class SolidWorksAPI {
   private swApp: any;
@@ -16,7 +62,8 @@ export class SolidWorksAPI {
   connect(): void {
     try {
       // Create or get running instance of SolidWorks
-      this.swApp = createActiveXObject('SldWorks.Application');
+      // Use our robust COM object factory
+      this.swApp = createCOMObject('SldWorks.Application');
       this.swApp.Visible = true;
       logger.info('Connected to SolidWorks');
     } catch (error) {

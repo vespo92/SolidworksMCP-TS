@@ -22,6 +22,7 @@ const consoleFormat = printf(({ level, message, timestamp: ts, stack, ...metadat
 });
 
 // Create logger instance
+// For MCP servers, we must NOT log to stdout/console as it interferes with JSON-RPC
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: combine(
@@ -29,29 +30,24 @@ export const logger = winston.createLogger({
     errors({ stack: true })
   ),
   transports: [
-    // Console transport
-    new winston.transports.Console({
+    // File transport only - NO console output for MCP compatibility
+    new winston.transports.File({
+      filename: process.env.MCP_LOG_FILE || 'solidworks-mcp.log',
       format: combine(
-        colorize(),
-        consoleFormat
-      )
+        timestamp(),
+        winston.format.json()
+      ),
+      handleExceptions: true,
+      handleRejections: true
     })
   ]
 });
 
-// Add file transport in production
+// Add error-only file in production
 if (process.env.NODE_ENV === 'production') {
   logger.add(new winston.transports.File({
-    filename: 'error.log',
+    filename: 'solidworks-mcp-error.log',
     level: 'error',
-    format: combine(
-      timestamp(),
-      winston.format.json()
-    )
-  }));
-  
-  logger.add(new winston.transports.File({
-    filename: 'combined.log',
     format: combine(
       timestamp(),
       winston.format.json()
