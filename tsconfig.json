@@ -17,5 +17,16 @@
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.spec.ts", "eslint.config.js"]
+  "exclude": [
+    "node_modules", 
+    "dist", 
+    "src/**/*.test.ts", 
+    "src/**/*.spec.ts", 
+    "eslint.config.js",
+    "src/index.refactored.ts",
+    "src/application/**/*",
+    "src/presentation/**/*",
+    "src/infrastructure/**/*",
+    "src/tools/drawing-analysis.ts"
+  ]
 }

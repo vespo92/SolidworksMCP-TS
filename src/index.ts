@@ -45,6 +45,9 @@ import { drawingTools } from './tools/drawing.js';
 import { exportTools } from './tools/export.js';
 import { vbaTools } from './tools/vba.js';
 import { analysisTools } from './tools/analysis.js';
+import { sketchTools } from './tools/sketch.js';
+import { templateManagerTools } from './tools/template-manager.js';
+import { nativeMacroTools } from './tools/native-macro.js';
 
 // Import API
 import { SolidWorksAPI } from './solidworks/api.js';
@@ -169,9 +172,12 @@ class SolidWorksMCPServer {
     const allTools = [
       ...modelingTools,
       ...drawingTools,
+      ...sketchTools,
       ...exportTools,
       ...vbaTools,
       ...analysisTools,
+      ...templateManagerTools,
+      ...nativeMacroTools,
       // Add macro tools
       {
         name: 'macro_start_recording',
