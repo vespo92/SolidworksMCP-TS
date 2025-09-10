@@ -1,0 +1,50 @@
+{
+  "name": "winax",
+  "version": "3.6.2",
+  "description": "Windows COM bindings",
+  "homepage": "https://github.com/durs/node-activex",
+  "keywords": [
+    "OLE",
+    "COM",
+    "ActiveX",
+    "ActiveXObject",
+    "CreateObject",
+    "Variant",
+    "Dispatch",
+    "WSH",
+    "WMI",
+    "Excel",
+    "Word",
+    "WScript",
+    "ConnectObject",
+    "DisconnectObject"
+  ],
+  "author": {
+    "name": "Yuri Dursin",
+    "url": "https://github.com/durs",
+    "email": "yuri.dursin@gmail.com"
+  },
+  "bin": {
+    "nodewscript": "./NodeWScript.js"
+  },
+  "contributors": [
+    "Yuri Dursin <yuri.dursin@gmail.com>",
+    "Somanuell",
+    "Daniel-Userlane",
+    "Alexey Grinevich <alexey.grinevich@inflectra.com>"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/durs/node-activex.git"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": ">= 10.0.0"
+  },
+  "scripts": {
+    "test": "mocha test"
+  },
+  "license": "MIT",
+  "main": "index.js"
+}

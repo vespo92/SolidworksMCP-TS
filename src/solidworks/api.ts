@@ -1,46 +1,31 @@
-// @ts-ignore - winax module doesn't have proper TypeScript definitions
-import winax from 'winax';
+import { createRequire } from 'module';
 import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
 
-// Initialize winax to provide global ActiveXObject if available
-try {
-  // This makes ActiveXObject available globally in some winax versions
-  if (typeof winax === 'object' && !((global as any).ActiveXObject)) {
-    require('winax');
-  }
-} catch (e) {
-  // Ignore initialization errors, we'll handle them in createCOMObject
-}
+// Create require function for CommonJS modules
+const require = createRequire(import.meta.url);
 
-// Create a robust COM object factory that works with multiple patterns
+// @ts-ignore - winax module doesn't have proper TypeScript definitions  
+// CRITICAL: We must use require() for winax to properly set global.ActiveXObject
+const winax = require('winax');
+
+// Create a robust COM object factory
 function createCOMObject(progId: string): any {
   try {
-    // Method 1: Try winax.Object (standard API for winax 3.x)
-    if (winax && (winax as any).Object) {
-      logger.debug(`Creating COM object using winax.Object: ${progId}`);
-      return new (winax as any).Object(progId);
-    }
-    
-    // Method 2: Try global ActiveXObject (if winax made it global)
+    // Primary method: Use global ActiveXObject (set by winax)
+    // This is what the working version uses
     if (typeof (global as any).ActiveXObject !== 'undefined') {
       logger.debug(`Creating COM object using global ActiveXObject: ${progId}`);
       return new (global as any).ActiveXObject(progId);
     }
     
-    // Method 3: Direct winax call (some versions)
-    if (typeof winax === 'function') {
-      logger.debug(`Creating COM object using winax function: ${progId}`);
-      return (winax as any)(progId);
+    // Fallback: Try winax.Object directly
+    if (winax && (winax as any).Object) {
+      logger.debug(`Creating COM object using winax.Object: ${progId}`);
+      return new (winax as any).Object(progId);
     }
     
-    // Method 4: Legacy support - if createActiveXObject was a custom wrapper
-    if ((winax as any).createActiveXObject) {
-      logger.debug(`Creating COM object using winax.createActiveXObject: ${progId}`);
-      return (winax as any).createActiveXObject(progId);
-    }
-    
-    throw new Error('No suitable COM object creation method found. Ensure winax is properly installed.');
+    throw new Error('ActiveXObject not available. Ensure winax is properly installed.');
   } catch (error) {
     logger.error(`Failed to create COM object ${progId}:`, error);
     throw error;
