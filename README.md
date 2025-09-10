@@ -17,26 +17,25 @@ A comprehensive Model Context Protocol (MCP) server that enables AI assistants t
 
 ## 🎯 Quick Start
 
-### Option 1: Install from npm (Recommended)
-```bash
-# Install globally from npm registry
-npm install -g solidworks-mcp-server
-```
+### ⚠️ Windows Users: Local Installation Required
 
-### Option 2: Manual Installation
+Due to the `winax` native module dependency, this package **cannot be installed via npm global install**. You must build it locally on your Windows machine.
+
+### Installation Steps:
 ```bash
-# Clone the repository
+# 1. Clone the repository to your Windows machine
 git clone https://github.com/vespo92/SolidworksMCP-TS
 cd SolidworksMCP-TS
-npm install
-npm run build
 
-# Link globally for use with Claude Desktop
-npm link
+# 2. Install dependencies (this compiles winax for your system)
+npm install
+
+# 3. Build the TypeScript files
+npm run build
 ```
 
 ### Configure Claude Desktop
-After installation, add to your Claude Desktop config and restart Claude Desktop.
+After installation, add the local path to your Claude Desktop config (see detailed instructions below).
 
 Then in Claude Desktop:
 ```
@@ -86,39 +85,61 @@ Then in Claude Desktop:
 
 ### 1. Install the MCP Server
 
-#### From npm Registry (Recommended):
+#### Local Installation (Required for Windows):
 ```bash
-npm install -g solidworks-mcp-server
-```
-
-#### Or Manual Installation:
-```bash
+# Clone to your Windows machine
 git clone https://github.com/vespo92/SolidworksMCP-TS
 cd SolidworksMCP-TS
-npm install
-npm run build
-npm link  # Makes it available globally
+
+# Install and build
+npm install  # Compiles winax native module for your system
+npm run build  # Compiles TypeScript to JavaScript
 ```
+
+**Note:** The `npm install` step will compile the `winax` native module specifically for your Windows system. This is why global npm installation doesn't work - each Windows machine needs its own compiled version.
 
 ### 2. Configure Claude Desktop
 
-Add to your Claude Desktop configuration:
+#### ⚠️ IMPORTANT: Windows Installation Issue
 
+Due to the nature of the `winax` native module (which provides COM/ActiveX support for Windows), the npm global installation method **will not work**. The `winax` module must be compiled locally for your specific Windows system.
+
+#### Required: Local Installation Method
+
+1. **Download or clone this repository to your Windows machine**
+2. **Install dependencies locally:**
+```bash
+cd C:\path\to\SolidworksMCP-Final
+npm install  # This will compile winax for your system
+npm run build  # Build the TypeScript files
+```
+
+3. **Configure Claude Desktop to use the local installation:**
 ```json
 {
   "mcpServers": {
     "solidworks": {
-      "command": "npx",
-      "args": ["solidworks-mcp-server"],
-      "env": {
-        "ENABLE_MACRO_RECORDING": "true",
-        "ENABLE_PDM": "true",
-        "SQL_CONNECTION": "mssql://server:1433/database"
-      }
+      "command": "node",
+      "args": ["C:\\path\\to\\SolidworksMCP-Final\\dist\\index.js"]
     }
   }
 }
 ```
+
+#### Why This Is Necessary
+
+- `winax` is a C++ native module that interfaces with Windows COM/ActiveX
+- Native modules cannot be pre-compiled for all Windows configurations
+- Each system needs its own compiled version matching its Node.js version and architecture
+- This is a limitation of native modules, not the MCP server itself
+
+#### Future Solutions (In Development)
+
+We're exploring options to simplify installation:
+- Pre-built binaries for common Windows configurations
+- Automatic winax installation script
+- Docker container with pre-configured environment
+- Electron-based standalone application
 
 ### 3. Environment Configuration
 

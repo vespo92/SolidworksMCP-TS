@@ -1,61 +1,7 @@
+// @ts-ignore
+import winax from 'winax';
 import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
-
-// @ts-ignore - winax module doesn't have proper TypeScript definitions
-// We MUST load winax as CommonJS for it to work properly
-let winax: any;
-let ActiveXObject: any;
-
-// Initialize winax - this MUST happen before we use it
-function initializeWinax() {
-  if (!winax) {
-    try {
-      // In the compiled JS, this will use require() which properly loads winax
-      winax = eval("require('winax')");
-      ActiveXObject = (global as any).ActiveXObject;
-      logger.info('Winax initialized successfully', { 
-        hasObject: !!winax?.Object,
-        hasActiveXObject: !!ActiveXObject 
-      });
-    } catch (error) {
-      logger.error('Failed to initialize winax', error);
-      throw new Error('Failed to load winax module. Ensure it is installed.');
-    }
-  }
-  return winax;
-}
-
-// Create a robust COM object factory
-function createCOMObject(progId: string): any {
-  // Ensure winax is loaded
-  initializeWinax();
-  
-  try {
-    // Method 1: Try winax.Object directly (this worked in your test)
-    if (winax && winax.Object) {
-      logger.info(`Creating COM object using winax.Object: ${progId}`);
-      const obj = new winax.Object(progId);
-      logger.info(`COM object created successfully`, { progId, hasObject: !!obj });
-      return obj;
-    }
-    
-    // Method 2: Use global ActiveXObject (also worked in your test)
-    if (ActiveXObject) {
-      logger.info(`Creating COM object using global ActiveXObject: ${progId}`);
-      const obj = new ActiveXObject(progId);
-      logger.info(`COM object created successfully`, { progId, hasObject: !!obj });
-      return obj;
-    }
-    
-    throw new Error('No COM object creation method available');
-  } catch (error) {
-    logger.error(`Failed to create COM object ${progId}:`, error);
-    throw error;
-  }
-}
-
-// Export a compatibility function for legacy code
-export const createActiveXObject = createCOMObject;
 
 export class SolidWorksAPI {
   private swApp: any;
@@ -69,12 +15,21 @@ export class SolidWorksAPI {
   connect(): void {
     try {
       // Create or get running instance of SolidWorks
-      // Use our robust COM object factory
-      this.swApp = createCOMObject('SldWorks.Application');
+      // @ts-ignore
+      this.swApp = new winax.Object('SldWorks.Application');
       this.swApp.Visible = true;
       logger.info('Connected to SolidWorks');
     } catch (error) {
-      throw new Error(`Failed to connect to SolidWorks: ${error}`);
+      // Try alternative connection method
+      try {
+        // @ts-ignore
+        this.swApp = winax.Object('SldWorks.Application');
+        this.swApp.Visible = true;
+        logger.info('Connected to SolidWorks (alternative method)');
+      } catch (error2) {
+        logger.error('Failed to connect to SolidWorks', error2);
+        throw new Error(`Failed to connect to SolidWorks: ${error2}`);
+      }
     }
   }
   
