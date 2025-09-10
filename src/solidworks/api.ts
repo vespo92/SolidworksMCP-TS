@@ -1,31 +1,53 @@
-import { createRequire } from 'module';
 import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
 
-// Create require function for CommonJS modules
-const require = createRequire(import.meta.url);
+// @ts-ignore - winax module doesn't have proper TypeScript definitions
+// We MUST load winax as CommonJS for it to work properly
+let winax: any;
+let ActiveXObject: any;
 
-// @ts-ignore - winax module doesn't have proper TypeScript definitions  
-// CRITICAL: We must use require() for winax to properly set global.ActiveXObject
-const winax = require('winax');
+// Initialize winax - this MUST happen before we use it
+function initializeWinax() {
+  if (!winax) {
+    try {
+      // In the compiled JS, this will use require() which properly loads winax
+      winax = eval("require('winax')");
+      ActiveXObject = (global as any).ActiveXObject;
+      logger.info('Winax initialized successfully', { 
+        hasObject: !!winax?.Object,
+        hasActiveXObject: !!ActiveXObject 
+      });
+    } catch (error) {
+      logger.error('Failed to initialize winax', error);
+      throw new Error('Failed to load winax module. Ensure it is installed.');
+    }
+  }
+  return winax;
+}
 
 // Create a robust COM object factory
 function createCOMObject(progId: string): any {
+  // Ensure winax is loaded
+  initializeWinax();
+  
   try {
-    // Primary method: Use global ActiveXObject (set by winax)
-    // This is what the working version uses
-    if (typeof (global as any).ActiveXObject !== 'undefined') {
-      logger.debug(`Creating COM object using global ActiveXObject: ${progId}`);
-      return new (global as any).ActiveXObject(progId);
+    // Method 1: Try winax.Object directly (this worked in your test)
+    if (winax && winax.Object) {
+      logger.info(`Creating COM object using winax.Object: ${progId}`);
+      const obj = new winax.Object(progId);
+      logger.info(`COM object created successfully`, { progId, hasObject: !!obj });
+      return obj;
     }
     
-    // Fallback: Try winax.Object directly
-    if (winax && (winax as any).Object) {
-      logger.debug(`Creating COM object using winax.Object: ${progId}`);
-      return new (winax as any).Object(progId);
+    // Method 2: Use global ActiveXObject (also worked in your test)
+    if (ActiveXObject) {
+      logger.info(`Creating COM object using global ActiveXObject: ${progId}`);
+      const obj = new ActiveXObject(progId);
+      logger.info(`COM object created successfully`, { progId, hasObject: !!obj });
+      return obj;
     }
     
-    throw new Error('ActiveXObject not available. Ensure winax is properly installed.');
+    throw new Error('No COM object creation method available');
   } catch (error) {
     logger.error(`Failed to create COM object ${progId}:`, error);
     throw error;
@@ -98,7 +120,7 @@ export class SolidWorksAPI {
     
     return {
       path: filePath,
-      name: this.currentModel.GetTitle(),
+      name: this.currentModel.GetTitle,
       type: (['Part', 'Assembly', 'Drawing'][docType - 1] as 'Part' | 'Assembly' | 'Drawing'),
       isActive: true,
     };
@@ -110,10 +132,10 @@ export class SolidWorksAPI {
     let modelTitle = '';
     try {
       // Safely get the title
-      if (this.currentModel.GetTitle) {
-        modelTitle = this.currentModel.GetTitle();
-      } else if (this.currentModel.GetPathName) {
-        modelTitle = this.currentModel.GetPathName();
+      if ('GetTitle' in this.currentModel) {
+        modelTitle = this.currentModel.GetTitle;
+      } else if ('GetPathName' in this.currentModel) {
+        modelTitle = this.currentModel.GetPathName;
       }
     } catch (e) {
       // If we can't get the title, continue anyway
@@ -149,17 +171,22 @@ export class SolidWorksAPI {
   createPart(): SolidWorksModel {
     if (!this.swApp) throw new Error('Not connected to SolidWorks');
     
-    // Create new part document
-    this.currentModel = this.swApp.NewDocument(
-      this.swApp.GetUserPreferenceStringValue(8), // swDefaultTemplatePart
-      0,
-      0,
-      0
-    );
+    // Create new part document - use NewPart() which works better
+    this.currentModel = this.swApp.NewPart();
+    
+    if (!this.currentModel) {
+      // Fallback to NewDocument if NewPart fails
+      const template = this.swApp.GetUserPreferenceStringValue(8) || '';
+      if (template) {
+        this.currentModel = this.swApp.NewDocument(template, 0, 0, 0);
+      } else {
+        throw new Error('Failed to create new part - no template available');
+      }
+    }
     
     return {
       path: '',
-      name: this.currentModel.GetTitle(),
+      name: this.currentModel.GetTitle,
       type: 'Part',
       isActive: true,
     };
@@ -339,10 +366,10 @@ export class SolidWorksAPI {
     
     try {
       // Ensure the model is saved first
-      const currentPath = this.currentModel.GetPathName();
+      const currentPath = this.currentModel.GetPathName;
       if (!currentPath || currentPath === '') {
         // Save the model first if it hasn't been saved
-        const docType = this.currentModel.GetType();
+        const docType = this.currentModel.GetType
         const ext = docType === 1 ? '.SLDPRT' : docType === 2 ? '.SLDASM' : '.SLDDRW';
         const tempPath = filePath.replace(/\.[^.]+$/, ext);
         this.currentModel.SaveAs3(tempPath, 0, 1);
@@ -469,7 +496,7 @@ export class SolidWorksAPI {
     if (!this.currentModel) throw new Error('No model open');
     
     // Check document type - mass properties only work for parts and assemblies
-    const docType = this.currentModel.GetType();
+    const docType = this.currentModel.GetType
     if (docType !== 1 && docType !== 2) { // 1=Part, 2=Assembly
       throw new Error('Mass properties only available for parts and assemblies');
     }
@@ -486,14 +513,14 @@ export class SolidWorksAPI {
       
       try {
         // Method 1: Try CreateMassProperty
-        massProps = modeler.CreateMassProperty();
+        massProps = modeler.CreateMassProperty()
       } catch (e) {
         // Method 2: Try CreateMassProperty2
         try {
-          massProps = modeler.CreateMassProperty2();
+          massProps = modeler.CreateMassProperty2()
         } catch (e2) {
           // Method 3: Try getting it from the model directly
-          massProps = this.currentModel.GetMassProperties();
+          massProps = this.currentModel.GetMassProperties()
         }
       }
       
@@ -504,11 +531,11 @@ export class SolidWorksAPI {
       // Update mass properties if method exists
       try {
         if (massProps.Update) {
-          const success = massProps.Update();
+          const success = massProps.Update()
           if (!success) {
             // Try recalculate
             if (massProps.Recalculate) {
-              massProps.Recalculate();
+              massProps.Recalculate()
             }
           }
         }
