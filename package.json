@@ -1,6 +1,6 @@
 {
   "name": "solidworks-mcp-server",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Clean Architecture SolidWorks MCP Server - Production-ready with SOLID principles",
   "type": "module",
   "main": "dist/index.js",

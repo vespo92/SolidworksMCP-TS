@@ -478,9 +478,10 @@ async function main() {
   }
 }
 
-// Run if executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
-}
+// Always run main when this file is executed
+main().catch((error) => {
+  console.error('Failed to start SolidWorks MCP Server:', error);
+  process.exit(1);
+});
 
 export { SolidWorksMCPServer };
