@@ -4,6 +4,8 @@
  */
 
 import { z } from 'zod';
+import * as fs from 'fs';
+import * as path from 'path';
 import { SolidWorksAPI } from '../solidworks/api.js';
 
 /**
@@ -36,8 +38,6 @@ export const nativeMacroTools = [
         }
         
         // Ensure directory exists
-        const path = require('path');
-        const fs = require('fs');
         const dir = path.dirname(macroPath);
         if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true });
@@ -172,7 +172,6 @@ export const nativeMacroTools = [
         if (!swApp) throw new Error('SolidWorks application not connected');
         
         // Check if macro file exists
-        const fs = require('fs');
         if (!fs.existsSync(args.macroPath)) {
           throw new Error(`Macro file not found: ${args.macroPath}`);
         }
@@ -231,7 +230,6 @@ export const nativeMacroTools = [
         if (!swApp) throw new Error('SolidWorks application not connected');
         
         // Check if macro file exists
-        const fs = require('fs');
         if (!fs.existsSync(args.macroPath)) {
           throw new Error(`Macro file not found: ${args.macroPath}`);
         }
@@ -281,8 +279,6 @@ export const nativeMacroTools = [
         }
         
         // Create directory if needed
-        const path = require('path');
-        const fs = require('fs');
         const dir = path.dirname(macroPath);
         if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true });
@@ -500,7 +496,6 @@ End Sub`;
           
           try {
             // Check if file exists
-            const fs = require('fs');
             if (!fs.existsSync(macro.path)) {
               throw new Error('Macro file not found');
             }

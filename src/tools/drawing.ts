@@ -13,13 +13,81 @@ export const drawingTools = [
       try {
         const app = swApi.getApp();
         const model = swApi.getCurrentModel();
-        if (!model) throw new Error('No model open');
+        if (!model) throw new Error('No model open to create drawing from');
         
-        // Create new drawing
-        const drawing = app.NewDocument(args.template, 0, 0, 0);
-        if (!drawing) throw new Error('Failed to create drawing');
+        // Get default drawing template if not specified
+        let templatePath = args.template;
+        if (!templatePath || templatePath === '') {
+          // Try to get default drawing template
+          try {
+            templatePath = app.GetUserPreferenceStringValue(8); // swUserPreferenceStringValue_e.swDefaultTemplateDrawing
+          } catch (e) {
+            // Fallback to standard templates
+            templatePath = 'C:\\ProgramData\\SolidWorks\\SOLIDWORKS 2024\\templates\\Drawing.drwdot';
+          }
+        }
         
-        return `Created new drawing from template: ${args.template}`;
+        // Create new drawing - try different methods
+        let drawing = null;
+        
+        // Method 1: NewDocument
+        try {
+          drawing = app.NewDocument(templatePath, 0, 0, 0);
+        } catch (e) {
+          // Method 2: Try with different parameters
+          try {
+            drawing = app.NewDocument(templatePath, 2, 0.297, 0.21); // A4 size
+          } catch (e2) {
+            // Method 3: Try creating from active model
+            try {
+              const modelPath = model.GetPathName();
+              if (modelPath) {
+                drawing = app.NewDrawing2(
+                  0, // Use default template
+                  templatePath,
+                  2, // Paper size (2 = A4)
+                  0.297, // Width
+                  0.21, // Height
+                  modelPath,
+                  modelPath
+                );
+              }
+            } catch (e3) {
+              throw new Error(`Cannot create drawing with template: ${templatePath}`);
+            }
+          }
+        }
+        
+        if (!drawing) {
+          throw new Error('Failed to create drawing document');
+        }
+        
+        // Try to add a view of the model
+        try {
+          const drawDoc = drawing;
+          const modelPath = model.GetPathName();
+          
+          if (modelPath && modelPath !== '') {
+            // Create first view
+            const firstView = drawDoc.CreateDrawViewFromModelView3(
+              modelPath,
+              '*Front', // Standard view name
+              0.15, // X position
+              0.15, // Y position
+              0  // Use sheet scale
+            );
+            
+            if (firstView) {
+              // Add projected views
+              drawDoc.CreateUnfoldedViewAt3(0.25, 0.15, 0, false);
+              drawDoc.CreateUnfoldedViewAt3(0.15, 0.25, 0, false);
+            }
+          }
+        } catch (e) {
+          // View creation is optional - drawing was still created
+        }
+        
+        return `Created new drawing from template: ${templatePath}`;
       } catch (error) {
         return `Failed to create drawing: ${error}`;
       }

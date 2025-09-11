@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { SolidWorksAPI } from '../solidworks/api.js';
 import { basename, extname, join } from 'path';
+import { existsSync } from 'fs';
 
 export const exportTools = [
   {
@@ -15,8 +16,29 @@ export const exportTools = [
       try {
         // Determine format from extension if not specified
         const format = args.format || extname(args.outputPath).slice(1).toLowerCase();
-        swApi.exportFile(args.outputPath, format);
-        return `Exported to ${format.toUpperCase()}: ${args.outputPath}`;
+        
+        // Try to export
+        try {
+          swApi.exportFile(args.outputPath, format);
+        } catch (e) {
+          // Even if export throws, check if file was created
+          if (existsSync(args.outputPath)) {
+            return `Exported to ${format.toUpperCase()}: ${args.outputPath} (with warnings)`;
+          }
+          throw e;
+        }
+        
+        // Verify file was created
+        if (existsSync(args.outputPath)) {
+          return `Exported to ${format.toUpperCase()}: ${args.outputPath}`;
+        } else {
+          // File might be created with different extension for some formats
+          const altPath = args.outputPath.replace(/\.[^.]+$/, `.${format}`);
+          if (existsSync(altPath)) {
+            return `Exported to ${format.toUpperCase()}: ${altPath}`;
+          }
+          return `Export completed but file not found at: ${args.outputPath}. Check SolidWorks for any error messages.`;
+        }
       } catch (error) {
         return `Failed to export: ${error}`;
       }
@@ -113,16 +135,68 @@ export const exportTools = [
         const modelView = model.ActiveView;
         if (!modelView) throw new Error('No active view');
         
-        // Set image size if specified
-        if (args.width && args.height) {
-          modelView.FrameState = 1; // swWindowState_e.swWindowMaximized
-          // Note: Actual window sizing would require more complex Win32 API calls
+        // Determine the format from file extension
+        const ext = args.outputPath.toLowerCase().split('.').pop();
+        let success = false;
+        
+        if (ext === 'bmp') {
+          // Use SaveBMP for bitmap format
+          success = model.SaveBMP(args.outputPath, args.width || 1920, args.height || 1080);
+        } else {
+          // Try using ViewZoomtofit first to ensure proper view
+          model.ViewZoomtofit2();
+          
+          // For other formats, try Extension.SaveAs with specific format
+          try {
+            if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') {
+              // Use SaveAs2 with format flags
+              // 0x00000020 = swSaveAsOptions_SaveAsPNG
+              // 0x00000040 = swSaveAsOptions_SaveAsJPEG
+              const formatFlag = ext === 'png' ? 0x20 : 0x40;
+              success = model.Extension.SaveAs2(args.outputPath, 0, formatFlag, null, null, false, null);
+            } else {
+              // Fallback to SaveBMP and note format limitation
+              success = model.SaveBMP(args.outputPath, args.width || 1920, args.height || 1080);
+              if (success && ext !== 'bmp') {
+                return `Screenshot saved as BMP (format ${ext} not directly supported): ${args.outputPath}`;
+              }
+            }
+          } catch (e) {
+            // Final fallback to SaveBMP
+            success = model.SaveBMP(args.outputPath.replace(/\.[^.]+$/, '.bmp'), args.width || 1920, args.height || 1080);
+            if (success) {
+              return `Screenshot saved as BMP (other formats failed): ${args.outputPath.replace(/\.[^.]+$/, '.bmp')}`;
+            }
+          }
         }
         
-        const success = model.SaveAs3(args.outputPath, 0, 2); // Save as image
-        if (!success) throw new Error('Failed to save screenshot');
+        // Check if file was created even if success is false
+        if (!success) {
+          // Check if file exists anyway
+          if (existsSync(args.outputPath)) {
+            return `Screenshot saved to: ${args.outputPath} (operation reported failure but file exists)`;
+          }
+          
+          // Check for BMP fallback
+          const bmpPath = args.outputPath.replace(/\.[^.]+$/, '.bmp');
+          if (existsSync(bmpPath)) {
+            return `Screenshot saved as BMP: ${bmpPath} (requested format failed)`;
+          }
+          
+          throw new Error('Failed to save screenshot - file not created');
+        }
         
-        return `Screenshot saved to: ${args.outputPath}`;
+        // Verify file exists
+        if (existsSync(args.outputPath)) {
+          return `Screenshot saved to: ${args.outputPath}`;
+        } else {
+          // Check for alternative extensions
+          const bmpPath = args.outputPath.replace(/\.[^.]+$/, '.bmp');
+          if (existsSync(bmpPath)) {
+            return `Screenshot saved as BMP: ${bmpPath}`;
+          }
+          return `Screenshot operation completed but file not found at: ${args.outputPath}`;
+        }
       } catch (error) {
         return `Failed to capture screenshot: ${error}`;
       }

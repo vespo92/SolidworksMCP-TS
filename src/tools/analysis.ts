@@ -116,18 +116,53 @@ export const analysisTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
         
-        const check = model.Extension.RunCheck3(
-          524287, // swGeomCheckAll
-          true, // repair
-          true, // display results
-          false // do not create solid
-        );
+        let checkResult = null;
+        let errorCount = 0;
         
-        if (check === 0) {
+        // Method 1: Try Extension.RunCheck3
+        try {
+          checkResult = model.Extension.RunCheck3(
+            524287, // swGeomCheckAll
+            true, // repair
+            true, // display results
+            false // do not create solid
+          );
+          errorCount = checkResult || 0;
+        } catch (e) {
+          // Method 2: Try ToolsCheck
+          try {
+            checkResult = model.ToolsCheck();
+            errorCount = checkResult || 0;
+          } catch (e2) {
+            // Method 3: Try CheckGeometry
+            try {
+              checkResult = model.CheckGeometry();
+              errorCount = checkResult || 0;
+            } catch (e3) {
+              // Method 4: Try Extension.ToolsCheck
+              try {
+                checkResult = model.Extension.ToolsCheck(
+                  true,  // check geometry
+                  false, // short edges
+                  false, // minimum radius
+                  false, // invalid sketches
+                  false  // zero thickness
+                );
+                errorCount = checkResult || 0;
+              } catch (e4) {
+                // No check methods available, try rebuild
+                model.EditRebuild3();
+                return 'Geometry check not available - performed rebuild instead';
+              }
+            }
+          }
+        }
+        
+        if (errorCount === 0) {
           return 'No geometry errors found';
         }
         
-        return `Found and attempted to repair ${check} geometry issue(s)`;
+        return `Found ${errorCount} geometry issue(s). Check SolidWorks for details.`;
       } catch (error) {
         return `Failed to check geometry: ${error}`;
       }
@@ -143,23 +178,86 @@ export const analysisTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
         
-        const partDoc = model;
-        const bodies = partDoc.GetBodies2(0, true);
+        // Try different methods to get bounding box
+        let box = null;
         
-        if (!bodies || bodies.length === 0) {
-          throw new Error('No solid bodies found');
+        // Method 1: Try PartDoc.GetPartBox for parts
+        if (model.GetType && model.GetType() === 1) { // Part document
+          try {
+            box = model.GetPartBox(true); // true = visible only
+          } catch (e) {
+            // GetPartBox might not exist
+          }
         }
         
-        const body = bodies[0];
-        const box = body.GetBodyBox();
-        
-        if (!box || box.length < 6) {
-          throw new Error('Failed to get bounding box');
+        // Method 2: Try GetBodies2 approach
+        if (!box) {
+          try {
+            const bodies = model.GetBodies2(0, false); // 0 = all bodies, false = visible only
+            if (bodies && bodies.length > 0) {
+              const body = bodies[0];
+              if (body.GetBodyBox) {
+                box = body.GetBodyBox();
+              }
+            }
+          } catch (e) {
+            // GetBodies2 failed
+          }
         }
         
-        const width = (box[3] - box[0]) * 1000;
-        const height = (box[4] - box[1]) * 1000;
-        const depth = (box[5] - box[2]) * 1000;
+        // Method 3: Try using Extension
+        if (!box) {
+          try {
+            const ext = model.Extension;
+            if (ext && ext.GetBox) {
+              box = ext.GetBox(false); // false = use precise box
+            }
+          } catch (e) {
+            // Extension.GetBox failed
+          }
+        }
+        
+        // Method 4: Get from selection
+        if (!box) {
+          try {
+            // Select all and get box
+            model.Extension.SelectAll();
+            const selMgr = model.SelectionManager;
+            if (selMgr && selMgr.GetSelectedObjectCount2(-1) > 0) {
+              box = model.GetPartBox(false);
+            }
+            model.ClearSelection2(true);
+          } catch (e) {
+            // Selection method failed
+          }
+        }
+        
+        if (!box || !Array.isArray(box) || box.length < 6) {
+          // Try to return approximate dimensions from mass properties
+          try {
+            const props = swApi.getMassProperties();
+            if (props && props.volume > 0) {
+              // Estimate cube dimensions from volume
+              const side = Math.pow(props.volume * 1e9, 1/3); // Convert m³ to mm³
+              return {
+                dimensions: {
+                  width: `~${side.toFixed(2)} mm`,
+                  height: `~${side.toFixed(2)} mm`,
+                  depth: `~${side.toFixed(2)} mm`,
+                },
+                volume: `${(props.volume * 1e9).toFixed(2)} mm³`,
+                note: 'Estimated from volume (actual bounding box unavailable)'
+              };
+            }
+          } catch (e) {
+            // Mass properties also failed
+          }
+          throw new Error('Failed to get bounding box - model may not have solid geometry');
+        }
+        
+        const width = Math.abs(box[3] - box[0]) * 1000;
+        const height = Math.abs(box[4] - box[1]) * 1000;
+        const depth = Math.abs(box[5] - box[2]) * 1000;
         
         return {
           dimensions: {

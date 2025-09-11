@@ -40,11 +40,12 @@ export const sketchTools = [
         if (!model) throw new Error('No active model');
         
         // Select the appropriate plane
-        let planeRef;
+        let planeName = args.plane;
+        
         if (args.plane === 'Custom' && args.customPlane) {
           // Create custom reference plane
           const { origin, normal } = args.customPlane;
-          planeRef = model.FeatureManager.InsertRefPlane(
+          const planeRef = model.FeatureManager.InsertRefPlane(
             8, // FirstConstraint: parallel to plane
             0, // FirstConstraintAngle
             4, // SecondConstraint: distance
@@ -52,27 +53,37 @@ export const sketchTools = [
             0, // ThirdConstraint
             0  // ThirdConstraintAngle
           );
+          if (!planeRef) throw new Error('Failed to create custom plane');
         } else {
-          // Use standard plane
-          planeRef = model.FeatureManager.GetPlane(args.plane);
+          // Select standard plane using SelectByID2
+          // SolidWorks uses "Front Plane", "Top Plane", "Right Plane" as names
+          const planeFullName = args.plane + ' Plane';
+          const selected = model.SelectByID2(planeFullName, 'PLANE', 0, 0, 0, false, 0, null, 0);
+          
+          if (!selected) {
+            // Try without space (some versions use "FrontPlane", "TopPlane", etc.)
+            const planeAltName = args.plane + 'Plane';
+            const selectedAlt = model.SelectByID2(planeAltName, 'PLANE', 0, 0, 0, false, 0, null, 0);
+            if (!selectedAlt) {
+              throw new Error(`Failed to select ${args.plane} plane`);
+            }
+          }
+          
+          // Create offset plane if needed
+          if (args.offset !== 0) {
+            const offsetPlane = model.FeatureManager.InsertRefPlane(
+              8, // Parallel to plane
+              0,
+              4, // Distance
+              args.offset / 1000,
+              0,
+              0
+            );
+            if (!offsetPlane) throw new Error('Failed to create offset plane');
+          }
         }
         
-        if (!planeRef) throw new Error('Failed to get reference plane');
-        
-        // Create offset plane if needed
-        if (args.offset !== 0) {
-          model.SelectByID2(args.plane + ' Plane', 'PLANE', 0, 0, 0, false, 0, null, 0);
-          planeRef = model.FeatureManager.InsertRefPlane(
-            8, // Parallel to plane
-            0,
-            4, // Distance
-            args.offset / 1000,
-            0,
-            0
-          );
-        }
-        
-        // Insert sketch on plane
+        // Insert sketch on the selected plane
         model.SketchManager.InsertSketch(true);
         const sketchName = model.SketchManager.ActiveSketch?.Name;
         
