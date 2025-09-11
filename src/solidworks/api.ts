@@ -216,94 +216,177 @@ export class SolidWorksAPI {
         throw new Error('Cannot access FeatureManager');
       }
       
-      // Try different extrusion methods based on what's available
+      // Make sure we're not in sketch edit mode
+      try {
+        const sketchMgr = this.currentModel.SketchManager;
+        const activeSketch = sketchMgr.ActiveSketch;
+        if (activeSketch) {
+          // Exit sketch mode
+          sketchMgr.InsertSketch(true);
+        }
+      } catch (e) {
+        // Continue if no active sketch
+      }
+      
+      // Clear selections first
+      try {
+        this.currentModel.ClearSelection2(true);
+      } catch (e) {
+        // Continue
+      }
+      
+      // Select the sketch - try multiple methods
+      let sketchSelected = false;
+      
+      // Method 1: Try to select by name
+      const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
+      for (const name of sketchNames) {
+        try {
+          const ext = this.currentModel.Extension;
+          if (ext) {
+            const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
+            if (selected) {
+              sketchSelected = true;
+              logger.info(`Selected sketch: ${name}`);
+              break;
+            }
+          }
+        } catch (e) {
+          // Try next name
+        }
+      }
+      
+      // Method 2: Try to select the last feature if it's a sketch
+      if (!sketchSelected) {
+        try {
+          const featureCount = this.currentModel.GetFeatureCount();
+          for (let i = 0; i < Math.min(10, featureCount); i++) {
+            const feat = this.currentModel.FeatureByPositionReverse(i);
+            if (feat) {
+              const typeName = feat.GetTypeName2();
+              if (typeName && typeName.toLowerCase().includes('sketch')) {
+                feat.Select2(false, 0);
+                sketchSelected = true;
+                logger.info(`Selected sketch by position: ${i}`);
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          // Continue
+        }
+      }
+      
+      if (!sketchSelected) {
+        logger.warn('Could not select sketch, attempting extrusion anyway');
+      }
+      
+      // Convert depth to meters
+      const depthInMeters = depth / 1000;
+      
       let feature = null;
       
+      // Try different extrusion methods
+      // The winax library has issues with methods that have many parameters
+      // We'll try to use a workaround by creating a variant array
       try {
-        // Method 1: Try FeatureExtrusion3 with all parameters
-        feature = featureMgr.FeatureExtrusion3(
-          true,    // SingleEndedFeature
-          reverse, // ReverseDirection
-          false,   // UseDirection2
-          0,       // EndCondition1 (0 = blind)
-          0,       // EndCondition2 
-          depth / 1000, // Depth1 (convert mm to m)
-          0.01,    // Depth2
-          false,   // RevOffset1
-          false,   // RevOffset2
-          false,   // ThinFeature
-          draft * Math.PI / 180, // DraftAngle1 (convert to radians)
-          0,       // DraftAngle2
-          false,   // DraftOutward1
-          false,   // DraftOutward2
-          false,   // DraftWhileDrag1
-          false,   // DraftWhileDrag2
-          false,   // ReverseOffset1Dir
-          true,    // TranslateSurface1
-          false,   // NormalToCurve
-          0,       // StartCondition
-          0,       // SketchPlane
-          false    // FlipStartDirection
-        );
+        // Method 1: Try the basic FeatureExtrusion with minimal params
+        // This uses a different calling convention that might work better
+        const args = [
+          true,           // Sd (single direction)
+          reverse,        // Flip
+          false,          // Dir
+          0,              // T1 (0 = blind)
+          0,              // T2
+          depthInMeters,  // D1 (depth)
+          0,              // D2
+          false,          // Dchk1
+          false,          // Dchk2
+          false,          // Ddir1
+          false,          // Ddir2
+          0,              // Dang1
+          0               // Dang2
+        ];
+        
+        // Try to invoke the method directly
+        feature = featureMgr.FeatureExtrusion.apply(featureMgr, args);
+        logger.info('FeatureExtrusion succeeded with apply');
       } catch (e) {
-        // Method 2: Try FeatureExtrusion2 with fewer parameters
+        logger.warn(`FeatureExtrusion with apply failed: ${e}`);
+        
+        // Method 2: Try using the __methods__ property if available
         try {
-          feature = featureMgr.FeatureExtrusion2(
-            true,    // SingleEndedFeature
-            reverse, // ReverseDirection
-            false,   // UseDirection2
-            0,       // EndCondition1
-            0,       // EndCondition2
-            depth / 1000, // Depth1
-            0.01,    // Depth2
-            false,   // RevOffset1
-            false,   // RevOffset2
-            false,   // ThinFeature
-            draft * Math.PI / 180, // DraftAngle1
-            0,       // DraftAngle2
-            false,   // DraftOutward1
-            false    // DraftOutward2
-          );
+          // Some COM objects expose methods differently
+          if (featureMgr.__methods__ && featureMgr.__methods__.FeatureExtrusion) {
+            feature = featureMgr.__methods__.FeatureExtrusion(
+              true, reverse, false, 0, 0, depthInMeters, 0,
+              false, false, false, false, 0, 0
+            );
+            logger.info('FeatureExtrusion succeeded via __methods__');
+          } else {
+            throw new Error('__methods__ not available');
+          }
         } catch (e2) {
-          // Method 3: Try the simplest FeatureExtrusion
-          feature = featureMgr.FeatureExtrusion(
-            true,
-            reverse,
-            0,
-            depth / 1000,
-            0,
-            0,
-            true,
-            false,
-            false,
-            draft * Math.PI / 180,
-            0,
-            false,
-            false
-          );
+          logger.warn(`Alternative method failed: ${e2}`);
+          
+          // Method 3: Try to create the extrusion using automation-compatible approach
+          try {
+            // Last resort: Try with explicit VARIANT conversion if available
+            const variant = winax.Variant;
+            if (variant) {
+              const params = new variant([
+                true, reverse, false, 0, 0, depthInMeters, 0,
+                false, false, false, false, 0, 0
+              ]);
+              feature = featureMgr.FeatureExtrusion(params);
+              logger.info('FeatureExtrusion succeeded with VARIANT');
+            } else {
+              // Final fallback: standard call
+              feature = featureMgr.FeatureExtrusion(
+                true, reverse, false, 0, 0, depthInMeters, 0,
+                false, false, false, false, 0, 0
+              );
+              logger.info('FeatureExtrusion succeeded with standard call');
+            }
+          } catch (e3) {
+            logger.error(`All extrusion methods failed: ${e3}`);
+            throw new Error(`Extrusion failed due to COM interface limitations. Please use the VBA macro at C:\\Users\\vinnie\\Claude\\SWMCP-4\\CreateExtrusion.swp`);
+          }
         }
       }
       
       if (!feature) {
-        throw new Error('Failed to create extrusion - ensure a sketch is selected');
+        throw new Error('Failed to create extrusion - feature is null');
       }
       
-      // Get feature name - try different properties
-      let featureName = 'Extrusion';
+      // Get feature name
+      let featureName = 'Boss-Extrude1';
       try {
         if (feature.Name) {
           featureName = feature.Name;
         } else if (feature.GetName) {
           featureName = feature.GetName();
-        } else if (feature.GetNameForSelection) {
-          featureName = feature.GetNameForSelection();
-        } else {
-          // Generate a default name
-          featureName = `Boss-Extrude${Date.now()}`;
         }
       } catch (e) {
-        // Use default name if we can't get the actual name
-        featureName = `Boss-Extrude${Date.now()}`;
+        // Use default name
+      }
+      
+      // Clear selections
+      try {
+        this.currentModel.ClearSelection2(true);
+      } catch (e) {
+        // Ignore
+      }
+      
+      // Rebuild
+      try {
+        this.currentModel.EditRebuild3();
+      } catch (e) {
+        try {
+          this.currentModel.EditRebuild();
+        } catch (e2) {
+          // Continue
+        }
       }
       
       return {

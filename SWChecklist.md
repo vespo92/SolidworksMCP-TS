@@ -15,10 +15,10 @@
 - [x] **close_model** - Close current model *(fixed: GetTitle() method)*
 - [x] **rebuild_model** - Rebuild the current model
 
-## ✅ Modeling Tools (7)
+## ⚠️ Modeling Tools (7)
 - [x] **create_part** - Create a new part document
 - [x] **create_assembly** - Create a new assembly document
-- [x] **create_extrusion** - Create an extrusion feature *(fixed: feature name retrieval)*
+- [⚠️] **create_extrusion** - Create an extrusion feature *(LIMITATION: COM interface fails with multi-parameter methods)*
 - [x] **get_dimension** - Get dimension value *(fixed: multiple API methods)*
 - [x] **set_dimension** - Set dimension value *(fixed: multiple API methods)*
 - [x] **create_configuration** - Create a new configuration
@@ -117,7 +117,7 @@
 6. **create_drawing_from_model** - Fixed template detection and creation methods
 7. **export_file** - Fixed STEP/IGES export with proper SaveAs3 flags
 8. **capture_screenshot** - Enhanced with file existence verification
-9. **create_extrusion** - Fixed feature name retrieval with multiple methods
+9. **create_extrusion** - ⚠️ **KNOWN LIMITATION: Cannot execute through COM interface**
 10. **generate_vba_script** - Created missing create_part.vba template
 11. **native_macro_recording** - Fixed require statements with ES module imports
 
@@ -146,7 +146,35 @@
 
 ---
 
-*Last Updated: 2025-01-11*
+## 🔴 Known Limitations (2025-01-12)
+
+### create_extrusion - COM Interface Limitation
+**Issue**: The extrusion feature cannot be created through the MCP server due to COM interface limitations with the winax library.
+
+**Root Cause**: 
+- SolidWorks' `FeatureExtrusion`, `FeatureExtrusion2`, and `FeatureExtrusion3` methods require 13-23 parameters
+- The winax Node.js COM bridge fails when calling methods with many parameters
+- This is a fundamental limitation of COM automation through Node.js
+
+**Attempted Solutions**:
+1. ✅ Sketch creation and rectangle drawing work correctly
+2. ❌ Direct FeatureExtrusion calls with all parameter variations
+3. ❌ Using array parameters with apply() method
+4. ❌ Attempting to use winax.Variant for parameter wrapping
+5. ❌ Different parameter passing conventions
+
+**Workarounds**:
+1. **VBA Macro** (Recommended): Created `CreateExtrusion.swp` macro that works when run directly in SolidWorks
+   - Location: `C:\Users\vinnie\Claude\SWMCP-4\CreateExtrusion.swp`
+   - Run via: Tools → Macro → Run
+2. **Manual Completion**: Use SolidWorks UI to complete the extrusion after sketch creation
+3. **Future Fix**: Consider using SolidWorks API SDK directly or PowerShell integration
+
+**Impact**: Any feature creation that requires many parameters will likely face similar issues.
+
+---
+
+*Last Updated: 2025-01-12*
 - **Error**:
 - **Notes**:
 
