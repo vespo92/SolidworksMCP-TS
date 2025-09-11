@@ -169,9 +169,10 @@ class SolidWorksMCPServer {
    * Setup request handlers
    */
   private setupHandlers(): void {
-    // Combine all tools
+    // Combine all tools including enhanced refactored versions
     const allTools = [
       ...modelingTools,
+      // ...modelingToolsRefactored, // TODO: Import when ready
       ...drawingTools,
       ...sketchTools,
       ...exportTools,
