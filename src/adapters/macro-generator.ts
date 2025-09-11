@@ -279,6 +279,7 @@ End Function
 `;
   }
   
+  
   /**
    * Generate VBA macro for sweep feature
    */

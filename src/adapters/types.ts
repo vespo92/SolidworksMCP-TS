@@ -61,6 +61,11 @@ export interface AdapterHealth {
   successCount: number;
   averageResponseTime: number;
   connectionStatus: 'connected' | 'disconnected' | 'error';
+  metrics?: {
+    directCOMCalls?: number;
+    macroFallbacks?: number;
+    successRate?: number;
+  };
 }
 
 /**
@@ -466,11 +471,14 @@ export interface SweepParameters {
 
 export interface LoftParameters {
   profiles: string[];
+  guides?: string[];  // Alias for guideCurves
   guideCurves?: string[];
+  centerCurve?: string;
+  closed?: boolean;  // Alias for close
+  close?: boolean;
   startTangency?: string;
   endTangency?: string;
   merge?: boolean;
-  close?: boolean;
   thinFeature?: boolean;
   thinThickness?: number;
 }
@@ -495,7 +503,7 @@ export interface MassProperties {
  * Adapter configuration
  */
 export interface AdapterConfig {
-  type: 'winax' | 'macro-fallback' | 'hybrid';
+  type: 'winax' | 'macro-fallback' | 'hybrid' | 'winax-enhanced';
   enableCircuitBreaker?: boolean;
   circuitBreakerThreshold?: number;
   circuitBreakerTimeout?: number;
