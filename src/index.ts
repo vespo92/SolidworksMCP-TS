@@ -20,6 +20,10 @@ import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import dotenv from 'dotenv';
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const packageJson = require('../package.json');
+
 // Import logging
 import { logInfo, logError, logOperation } from './utils/logger.js';
 
@@ -96,7 +100,7 @@ class SolidWorksMCPServer {
     this.server = new Server(
       {
         name: 'solidworks-mcp-server',
-        version: '2.0.0',
+        version: packageJson.version,
         description: 'Enhanced SolidWorks MCP Server with macro recording, design tables, SQL integration, and PDM support'
       },
       {
@@ -418,7 +422,7 @@ class SolidWorksMCPServer {
       await this.server.connect(transport);
       
       logInfo('SolidWorks MCP Server started', {
-        version: '2.0.0',
+        version: packageJson.version,
         features: {
           macroRecording: this.config.enableMacroRecording,
           pdmIntegration: this.config.enablePDM,
