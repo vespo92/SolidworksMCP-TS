@@ -355,9 +355,7 @@ MIT License - See [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/SolidworksMCP-Final/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/SolidworksMCP-Final/discussions)
-- **Documentation**: [Wiki](https://github.com/yourusername/SolidworksMCP-Final/wiki)
+- **Issues**: [GitHub Issues](https://github.com/vespo92/SolidworksMCP/issues)
 
 ---
 
