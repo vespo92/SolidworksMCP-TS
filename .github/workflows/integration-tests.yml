@@ -1,0 +1,109 @@
+name: Integration Tests (Self-Hosted)
+
+# This workflow is designed to run on a self-hosted Windows runner
+# with SolidWorks installed. It can be triggered manually or on a schedule.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sw-version:
+        description: 'SolidWorks version to test'
+        required: true
+        default: '2024'
+        type: choice
+        options:
+          - '2021'
+          - '2022'
+          - '2023'
+          - '2024'
+          - '2025'
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  integration-test:
+    name: Integration Tests (SW ${{ github.event.inputs.sw-version || '2024' }})
+    runs-on: [self-hosted, windows, solidworks]
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify SolidWorks Installation
+        shell: pwsh
+        run: |
+          $swPath = "C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\SLDWORKS.exe"
+          if (-not (Test-Path $swPath)) {
+            throw "SolidWorks not found at expected location: $swPath"
+          }
+
+          # Get SolidWorks version
+          $version = (Get-Item $swPath).VersionInfo.ProductVersion
+          Write-Host "SolidWorks version: $version"
+
+      - name: Build
+        run: npm run build
+
+      - name: Run Integration Tests
+        run: npm run test:integration
+        env:
+          SOLIDWORKS_VERSION: ${{ github.event.inputs.sw-version || '2024' }}
+          USE_MOCK_SOLIDWORKS: false
+          LOG_LEVEL: debug
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results-${{ github.event.inputs.sw-version || '2024' }}
+          path: |
+            test-results/
+            logs/
+          retention-days: 14
+
+      - name: Upload Screenshots (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots-${{ github.run_number }}
+          path: screenshots/
+          retention-days: 7
+
+  report:
+    name: Generate Test Report
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    if: always()
+
+    steps:
+      - name: Download Test Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: integration-test-results-*
+          merge-multiple: true
+
+      - name: Generate HTML Report
+        run: |
+          # Generate test report
+          echo "Test report generation would go here"
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-report
+          path: test-report.html
+          retention-days: 30

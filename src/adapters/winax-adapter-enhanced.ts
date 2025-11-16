@@ -21,7 +21,7 @@ import {
 } from './types.js';
 import { SolidWorksModel, SolidWorksFeature } from '../solidworks/types.js';
 import { MacroGenerator } from './macro-generator.js';
-import { FeatureComplexityAnalyzer, FeatureOptimizer } from './feature-complexity-analyzer.js';
+import { FeatureComplexityAnalyzer, shouldUseMacroFallback } from './feature-complexity-analyzer.js';
 import { logger } from '../utils/logger.js';
 
 export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
@@ -99,8 +99,8 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     
     const analysis = FeatureComplexityAnalyzer.analyzeExtrusion(params);
     logger.info(`Extrusion analysis: ${JSON.stringify(analysis)}`);
-    
-    if (!analysis.requiresMacro) {
+
+    if (analysis.strategy === 'direct-com') {
       // Try direct COM call for simple extrusions
       try {
         return await this.createExtrusionDirect(params);
@@ -184,10 +184,10 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   async createRevolve(params: RevolveParameters): Promise<SolidWorksFeature> {
     if (!this.currentModel) throw new Error('No active model');
     
-    const analysis = FeatureComplexityAnalyzer.analyzeRevolve(params);
+    const analysis = FeatureComplexityAnalyzer.determineStrategy('FeatureRevolve2', params as any);
     logger.info(`Revolve analysis: ${JSON.stringify(analysis)}`);
-    
-    if (!analysis.requiresMacro) {
+
+    if (analysis.strategy === 'direct-com') {
       try {
         return await this.createRevolveDirect(params);
       } catch (error) {
@@ -268,8 +268,8 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     if (!this.currentModel) throw new Error('No active model');
     
     // Sweep always requires macro due to high parameter count
-    const analysis = FeatureComplexityAnalyzer.analyzeSweep(params);
-    logger.info(`Sweep analysis: Always complex - ${analysis.parameterCount} parameters`);
+    const analysis = FeatureComplexityAnalyzer.determineStrategy('InsertProtrusionSwept4', params as any);
+    logger.info(`Sweep analysis: Always complex - strategy: ${analysis.strategy}`);
     
     return await this.createSweepViaMacro(params);
   }
@@ -302,10 +302,10 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   async createLoft(params: LoftParameters): Promise<SolidWorksFeature> {
     if (!this.currentModel) throw new Error('No active model');
     
-    const analysis = FeatureComplexityAnalyzer.analyzeLoft(params);
+    const analysis = FeatureComplexityAnalyzer.determineStrategy('InsertProtrusionLoft3', params as any);
     logger.info(`Loft analysis: ${JSON.stringify(analysis)}`);
-    
-    if (!analysis.requiresMacro) {
+
+    if (analysis.strategy === 'direct-com') {
       try {
         return await this.createLoftDirect(params);
       } catch (error) {

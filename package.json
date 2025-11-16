@@ -17,7 +17,11 @@
     "migrate": "tsx Fixes-V2/migrate.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "USE_MOCK_SOLIDWORKS=false vitest run --config vitest.integration.config.ts",
+    "test:versions": "node scripts/test-versions.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.1",

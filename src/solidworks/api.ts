@@ -235,9 +235,11 @@ export class SolidWorksAPI {
         // Continue
       }
       
-      // Select the sketch - try multiple methods
+      // Select the sketch - try multiple methods with detailed logging
       let sketchSelected = false;
-      
+      let selectedSketchName = '';
+      const attemptedSketches: string[] = [];
+
       // Method 1: Try to select by name
       const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
       for (const name of sketchNames) {
@@ -247,39 +249,52 @@ export class SolidWorksAPI {
             const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
             if (selected) {
               sketchSelected = true;
+              selectedSketchName = name;
               logger.info(`Selected sketch: ${name}`);
               break;
+            } else {
+              attemptedSketches.push(name);
             }
           }
         } catch (e) {
-          // Try next name
+          attemptedSketches.push(`${name} (error: ${e})`);
         }
       }
-      
+
       // Method 2: Try to select the last feature if it's a sketch
       if (!sketchSelected) {
         try {
           const featureCount = this.currentModel.GetFeatureCount();
+          logger.info(`Searching ${featureCount} features for sketch...`);
+
           for (let i = 0; i < Math.min(10, featureCount); i++) {
             const feat = this.currentModel.FeatureByPositionReverse(i);
             if (feat) {
               const typeName = feat.GetTypeName2();
+              const featName = feat.Name || feat.GetName();
+
               if (typeName && typeName.toLowerCase().includes('sketch')) {
                 feat.Select2(false, 0);
                 sketchSelected = true;
-                logger.info(`Selected sketch by position: ${i}`);
+                selectedSketchName = featName || `Feature at position ${i}`;
+                logger.info(`Selected sketch by position: ${selectedSketchName}`);
                 break;
               }
             }
           }
         } catch (e) {
-          // Continue
+          logger.warn(`Feature search failed: ${e}`);
         }
       }
-      
+
       if (!sketchSelected) {
-        logger.warn('Could not select sketch, attempting extrusion anyway');
+        const errorMessage = `No sketch found to extrude. Attempted sketches: ${attemptedSketches.join(', ')}. ` +
+          `Please ensure a sketch exists or specify the sketch name explicitly.`;
+        logger.error(errorMessage);
+        throw new Error(errorMessage);
       }
+
+      logger.info(`Using sketch: ${selectedSketchName}`);
       
       // Convert depth to meters
       const depthInMeters = depth / 1000;
