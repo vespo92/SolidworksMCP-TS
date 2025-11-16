@@ -49,17 +49,25 @@ Sub CreateExtrusion()
     Dim swFeatureMgr As Object
     Dim swFeature As Object
     Dim boolStatus As Boolean
-    
+    Dim errorMsg As String
+
+    On Error GoTo ErrorHandler
+
     ' Get SolidWorks application
     Set swApp = Application.SldWorks
     Set swModel = swApp.ActiveDoc
-    
+
     If swModel Is Nothing Then
-        MsgBox "No active document"
+        MsgBox "ERROR: No active document", vbCritical, "Extrusion Macro"
         Exit Sub
     End If
-    
+
     Set swFeatureMgr = swModel.FeatureManager
+
+    If swFeatureMgr Is Nothing Then
+        errorMsg = "ERROR: Cannot access FeatureManager"
+        GoTo ErrorHandler
+    End If
     
     ' Ensure we're not in sketch mode
     swModel.SketchManager.InsertSketch True
@@ -91,7 +99,7 @@ Sub CreateExtrusion()
     If Not sketchSelected Then
         Dim featureCount As Long
         featureCount = swModel.GetFeatureCount
-        
+
         For i = 0 To Min(10, featureCount - 1)
             Set swFeat = swModel.FeatureByPositionReverse(i)
             If Not swFeat Is Nothing Then
@@ -103,6 +111,12 @@ Sub CreateExtrusion()
                 End If
             End If
         Next i
+    End If
+
+    ' Validate sketch selection
+    If Not sketchSelected Then
+        errorMsg = "ERROR: No sketch found to extrude. Please create a sketch first."
+        GoTo ErrorHandler
     End If
     
     ' Create the extrusion with all parameters
@@ -143,10 +157,25 @@ Sub CreateExtrusion()
     
     ' Clear selections
     swModel.ClearSelection2 True
-    
+
     ' Rebuild
     swModel.EditRebuild3
-    
+
+    ' Check if feature was created successfully
+    If swFeature Is Nothing Then
+        MsgBox "ERROR: Extrusion feature was not created. Check that a valid sketch is selected.", vbCritical, "Extrusion Macro"
+        Exit Sub
+    End If
+
+    MsgBox "Extrusion created successfully: " & swFeature.Name, vbInformation, "Extrusion Macro"
+    Exit Sub
+
+ErrorHandler:
+    If errorMsg = "" Then
+        errorMsg = "Unexpected error: " & Err.Description & " (Error " & Err.Number & ")"
+    End If
+    MsgBox errorMsg, vbCritical, "Extrusion Macro Error"
+    Debug.Print errorMsg
 End Sub
 
 Function Min(a As Long, b As Long) As Long
@@ -176,16 +205,24 @@ Sub CreateRevolve()
     Dim swFeatureMgr As Object
     Dim swFeature As Object
     Dim boolStatus As Boolean
-    
+    Dim errorMsg As String
+
+    On Error GoTo ErrorHandler
+
     Set swApp = Application.SldWorks
     Set swModel = swApp.ActiveDoc
-    
+
     If swModel Is Nothing Then
-        MsgBox "No active document"
+        MsgBox "ERROR: No active document", vbCritical, "Revolve Macro"
         Exit Sub
     End If
-    
+
     Set swFeatureMgr = swModel.FeatureManager
+
+    If swFeatureMgr Is Nothing Then
+        errorMsg = "ERROR: Cannot access FeatureManager"
+        GoTo ErrorHandler
+    End If
     
     ' Ensure we're not in sketch mode
     swModel.SketchManager.InsertSketch True
@@ -195,10 +232,10 @@ Sub CreateRevolve()
     
     ' Select the sketch for revolve
     boolStatus = SelectLatestSketch(swModel)
-    
+
     If Not boolStatus Then
-        MsgBox "No sketch selected for revolve"
-        Exit Sub
+        errorMsg = "ERROR: No sketch found for revolve. Please create a sketch with a profile and centerline."
+        GoTo ErrorHandler
     End If
     
     ' Select axis if specified
@@ -239,10 +276,25 @@ Sub CreateRevolve()
     
     ' Clear selections
     swModel.ClearSelection2 True
-    
+
     ' Rebuild
     swModel.EditRebuild3
-    
+
+    ' Check if feature was created successfully
+    If swFeature Is Nothing Then
+        MsgBox "ERROR: Revolve feature was not created. Check sketch and axis selection.", vbCritical, "Revolve Macro"
+        Exit Sub
+    End If
+
+    MsgBox "Revolve created successfully: " & swFeature.Name, vbInformation, "Revolve Macro"
+    Exit Sub
+
+ErrorHandler:
+    If errorMsg = "" Then
+        errorMsg = "Unexpected error: " & Err.Description & " (Error " & Err.Number & ")"
+    End If
+    MsgBox errorMsg, vbCritical, "Revolve Macro Error"
+    Debug.Print errorMsg
 End Sub
 
 Function SelectLatestSketch(swModel As Object) As Boolean
@@ -440,7 +492,7 @@ End Sub
       if (p === null || p === undefined) return 'Nothing';
       return JSON.stringify(p);
     }).join(', ');
-    
+
     return `
 Option Explicit
 
@@ -448,21 +500,37 @@ Sub Execute${methodName}()
     Dim swApp As Object
     Dim swModel As Object
     Dim result As Variant
-    
+    Dim errorMsg As String
+
+    On Error GoTo ErrorHandler
+
     Set swApp = Application.SldWorks
     Set swModel = swApp.ActiveDoc
-    
+
     If swModel Is Nothing Then
-        MsgBox "No active document"
+        MsgBox "ERROR: No active document", vbCritical, "Macro Execution"
         Exit Sub
     End If
-    
+
     ' Execute the method
     result = swModel.${methodName}(${paramList})
-    
+
     ' Rebuild if needed
     swModel.EditRebuild3
-    
+
+    ' Check result
+    If IsEmpty(result) Or result = False Or result Is Nothing Then
+        MsgBox "WARNING: Method ${methodName} returned no result or failed", vbExclamation, "Macro Execution"
+    Else
+        MsgBox "Method ${methodName} executed successfully", vbInformation, "Macro Execution"
+    End If
+
+    Exit Sub
+
+ErrorHandler:
+    errorMsg = "ERROR executing ${methodName}: " & Err.Description & " (Error " & Err.Number & ")"
+    MsgBox errorMsg, vbCritical, "Macro Execution Error"
+    Debug.Print errorMsg
 End Sub
 `;
   }

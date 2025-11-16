@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SolidWorksAPI } from '../solidworks/api.js';
+import { SolidWorksConfig } from '../utils/solidworks-config.js';
 
 export const drawingTools = [
   {
@@ -18,12 +19,10 @@ export const drawingTools = [
         // Get default drawing template if not specified
         let templatePath = args.template;
         if (!templatePath || templatePath === '') {
-          // Try to get default drawing template
           try {
-            templatePath = app.GetUserPreferenceStringValue(8); // swUserPreferenceStringValue_e.swDefaultTemplateDrawing
+            templatePath = SolidWorksConfig.getTemplatePath(app, 'drawing', args.template);
           } catch (e) {
-            // Fallback to standard templates
-            templatePath = 'C:\\ProgramData\\SolidWorks\\SOLIDWORKS 2024\\templates\\Drawing.drwdot';
+            throw new Error(`Template path error: ${e}`);
           }
         }
         
@@ -63,10 +62,11 @@ export const drawingTools = [
         }
         
         // Try to add a view of the model
+        const warnings: string[] = [];
         try {
           const drawDoc = drawing;
           const modelPath = model.GetPathName();
-          
+
           if (modelPath && modelPath !== '') {
             // Create first view
             const firstView = drawDoc.CreateDrawViewFromModelView3(
@@ -76,18 +76,34 @@ export const drawingTools = [
               0.15, // Y position
               0  // Use sheet scale
             );
-            
+
             if (firstView) {
               // Add projected views
-              drawDoc.CreateUnfoldedViewAt3(0.25, 0.15, 0, false);
-              drawDoc.CreateUnfoldedViewAt3(0.15, 0.25, 0, false);
+              try {
+                const topView = drawDoc.CreateUnfoldedViewAt3(0.25, 0.15, 0, false);
+                if (!topView) warnings.push('Failed to create top view');
+              } catch (e) {
+                warnings.push(`Top view error: ${e}`);
+              }
+
+              try {
+                const rightView = drawDoc.CreateUnfoldedViewAt3(0.15, 0.25, 0, false);
+                if (!rightView) warnings.push('Failed to create right view');
+              } catch (e) {
+                warnings.push(`Right view error: ${e}`);
+              }
+            } else {
+              warnings.push('Failed to create front view - drawing is empty');
             }
+          } else {
+            warnings.push('Model has no saved path - cannot create views. Save the model first.');
           }
         } catch (e) {
-          // View creation is optional - drawing was still created
+          warnings.push(`View creation error: ${e}`);
         }
-        
-        return `Created new drawing from template: ${templatePath}`;
+
+        const warningText = warnings.length > 0 ? `\nWarnings: ${warnings.join('; ')}` : '';
+        return `Created new drawing from template: ${templatePath}${warningText}`;
       } catch (error) {
         return `Failed to create drawing: ${error}`;
       }
