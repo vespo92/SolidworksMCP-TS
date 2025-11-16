@@ -1,56 +1,84 @@
 /**
  * Feature Complexity Analyzer
- * 
- * Analyzes SolidWorks feature creation methods to determine
- * if they require macro fallback due to parameter count limitations.
+ *
+ * Intelligently analyzes SolidWorks operations to determine the best execution method:
+ * - Direct COM for simple operations (≤12 parameters)
+ * - VBA Macro fallback for complex operations (13+ parameters)
+ *
+ * This solves the fundamental limitation of Node.js COM bridges (winax, edge-js)
+ * which fail when calling methods with more than 12-13 parameters.
  */
 
-import { 
-  ExtrusionParameters, 
-  RevolveParameters, 
-  SweepParameters, 
-  LoftParameters 
+import {
+  ExtrusionParameters,
+  RevolveParameters,
+  SweepParameters,
+  LoftParameters
 } from './types.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Feature method complexity information
  */
-interface FeatureComplexity {
+export interface FeatureComplexity {
   method: string;
   parameterCount: number;
   requiresMacro: boolean;
   criticalParameters: string[];
+  alternativeMethod?: string;
+}
+
+/**
+ * Execution strategy recommendation
+ */
+export interface ExecutionStrategy {
+  method: string;
+  strategy: 'direct-com' | 'vba-macro' | 'hybrid';
+  confidence: number; // 0-1
+  reason: string;
+  estimatedSuccessRate: number; // 0-1
 }
 
 /**
  * SolidWorks API method parameter counts
- * Based on SolidWorks 2025 API documentation
+ * Based on SolidWorks API documentation (versions 2021-2025)
  */
 export class FeatureComplexityAnalyzer {
-  private static readonly PARAMETER_LIMIT = 12; // COM bridge limitation
-  
+  private static readonly COM_PARAMETER_LIMIT = 12; // Empirical limit for Node.js COM bridges
+  private static readonly HYBRID_THRESHOLD = 10;    // Start considering macro at 10 params
+
+  /**
+   * Feature complexity database
+   * Maps SolidWorks API methods to their characteristics
+   */
   private static readonly FEATURE_COMPLEXITIES: Record<string, FeatureComplexity> = {
-    // Extrusion features
+    // ========================================
+    // EXTRUSION FEATURES
+    // ========================================
     'FeatureExtrusion': {
       method: 'FeatureExtrusion',
       parameterCount: 13,
       requiresMacro: true,
-      criticalParameters: ['depth', 'draft', 'bothDirections']
+      criticalParameters: ['depth', 'draft', 'bothDirections'],
+      alternativeMethod: 'FeatureExtrusion2'
     },
     'FeatureExtrusion2': {
       method: 'FeatureExtrusion2',
       parameterCount: 16,
       requiresMacro: true,
-      criticalParameters: ['depth', 'draft', 'bothDirections', 'thinFeature']
+      criticalParameters: ['depth', 'draft', 'bothDirections', 'thinFeature'],
+      alternativeMethod: 'FeatureExtrusion3'
     },
     'FeatureExtrusion3': {
       method: 'FeatureExtrusion3',
       parameterCount: 23,
       requiresMacro: true,
-      criticalParameters: ['depth', 'depth2', 'draft', 'thinFeature', 'capEnds']
+      criticalParameters: ['depth', 'depth2', 'draft', 'draftAngle', 'thinFeature', 'capEnds']
     },
-    
-    // Revolve features
+
+    // ========================================
+    // REVOLVE FEATURES
+    // ========================================
     'FeatureRevolve': {
       method: 'FeatureRevolve',
       parameterCount: 10,
@@ -63,364 +91,294 @@ export class FeatureComplexityAnalyzer {
       requiresMacro: false, // Right at the limit
       criticalParameters: ['angle', 'direction', 'thinFeature']
     },
-    
-    // Sweep features
-    'FeatureSweep': {
-      method: 'FeatureSweep',
-      parameterCount: 14,
-      requiresMacro: true,
+
+    // ========================================
+    // SWEEP FEATURES
+    // ========================================
+    'InsertProtrusionSwept': {
+      method: 'InsertProtrusionSwept',
+      parameterCount: 10,
+      requiresMacro: false,
       criticalParameters: ['profileSketch', 'pathSketch']
     },
-    'FeatureSweep3': {
-      method: 'FeatureSweep3',
-      parameterCount: 20,
+    'InsertProtrusionSwept4': {
+      method: 'InsertProtrusionSwept4',
+      parameterCount: 14,
       requiresMacro: true,
       criticalParameters: ['profileSketch', 'pathSketch', 'twistAngle', 'thinFeature']
     },
-    
-    // Loft features
-    'FeatureLoft': {
-      method: 'FeatureLoft',
+
+    // ========================================
+    // LOFT FEATURES
+    // ========================================
+    'InsertProtrusionLoft': {
+      method: 'InsertProtrusionLoft',
       parameterCount: 12,
       requiresMacro: false,
       criticalParameters: ['profiles', 'guides']
     },
-    'FeatureLoft3': {
-      method: 'FeatureLoft3',
-      parameterCount: 15,
+    'InsertProtrusionLoft3': {
+      method: 'InsertProtrusionLoft3',
+      parameterCount: 17,
       requiresMacro: true,
       criticalParameters: ['profiles', 'guides', 'centerCurve', 'thinFeature']
     },
-    
-    // Pattern features
-    'FeatureLinearPattern': {
+
+    // ========================================
+    // PATTERN FEATURES
+    // ========================================
+    'FeatureLinearPattern4': {
       method: 'FeatureLinearPattern4',
       parameterCount: 18,
       requiresMacro: true,
-      criticalParameters: ['direction1', 'spacing1', 'count1']
+      criticalParameters: ['direction1', 'spacing1', 'count1', 'direction2', 'spacing2', 'count2']
     },
     'FeatureCircularPattern': {
-      method: 'FeatureCircularPattern4',
-      parameterCount: 16,
-      requiresMacro: true,
-      criticalParameters: ['axis', 'angle', 'count']
-    },
-    
-    // Fillet and Chamfer
-    'FeatureFillet': {
-      method: 'FeatureFillet3',
+      method: 'FeatureCircularPattern',
       parameterCount: 15,
       requiresMacro: true,
-      criticalParameters: ['radius', 'edges', 'propagate']
+      criticalParameters: ['axis', 'count', 'angle']
     },
-    'FeatureChamfer': {
-      method: 'FeatureChamfer2',
-      parameterCount: 13,
-      requiresMacro: true,
-      criticalParameters: ['distance', 'angle', 'edges']
-    },
-    
-    // Mirror and Move/Copy
-    'FeatureMirror': {
-      method: 'FeatureMirror2',
-      parameterCount: 8,
+
+    // ========================================
+    // SIMPLE OPERATIONS (always direct COM)
+    // ========================================
+    'CreateLine': {
+      method: 'CreateLine',
+      parameterCount: 6,
       requiresMacro: false,
-      criticalParameters: ['mirrorPlane', 'features']
+      criticalParameters: ['x1', 'y1', 'z1', 'x2', 'y2', 'z2']
     },
-    'FeatureMoveCopyBody': {
-      method: 'FeatureMoveCopyBody2',
-      parameterCount: 14,
-      requiresMacro: true,
-      criticalParameters: ['translation', 'rotation', 'copy']
+    'CreateCircle': {
+      method: 'CreateCircle',
+      parameterCount: 4,
+      requiresMacro: false,
+      criticalParameters: ['x', 'y', 'z', 'radius']
     },
-    
-    // Sheet Metal features
-    'FeatureSheetMetal': {
-      method: 'FeatureSheetMetal5',
-      parameterCount: 16,
-      requiresMacro: true,
-      criticalParameters: ['thickness', 'bendRadius', 'reliefType']
-    },
-    'FeatureEdgeFlange': {
-      method: 'FeatureEdgeFlange3',
-      parameterCount: 14,
-      requiresMacro: true,
-      criticalParameters: ['angle', 'flangeLength', 'edges']
+    'InsertSketch': {
+      method: 'InsertSketch',
+      parameterCount: 1,
+      requiresMacro: false,
+      criticalParameters: ['exit']
     }
   };
-  
+
   /**
-   * Analyze extrusion parameters to determine if macro fallback is needed
+   * Analyze parameter complexity of an operation
    */
-  static analyzeExtrusion(params: ExtrusionParameters): {
-    requiresMacro: boolean;
-    complexity: 'simple' | 'medium' | 'complex';
-    parameterCount: number;
-    reason?: string;
+  static analyzeParameters(params: Record<string, any>): {
+    count: number;
+    complexity: 'simple' | 'moderate' | 'complex';
+    hasOptionals: boolean;
   } {
-    let paramCount = 6; // Base parameters always present
-    
-    // Count additional parameters
-    if (params.bothDirections) paramCount += 2;
-    if (params.draft !== undefined && params.draft !== 0) paramCount += 2;
-    if (params.thinFeature) paramCount += 4;
-    if (params.capEnds) paramCount += 2;
-    if (params.startCondition !== undefined) paramCount += 1;
-    if (params.endCondition !== undefined) paramCount += 1;
-    if (params.offsetDistance !== undefined) paramCount += 2;
-    
-    const requiresMacro = paramCount > this.PARAMETER_LIMIT;
-    
-    let complexity: 'simple' | 'medium' | 'complex';
-    if (paramCount <= 8) complexity = 'simple';
-    else if (paramCount <= 12) complexity = 'medium';
-    else complexity = 'complex';
-    
+    const count = Object.keys(params).filter(key => params[key] !== undefined && params[key] !== null).length;
+
     return {
-      requiresMacro,
-      complexity,
-      parameterCount: paramCount,
-      reason: requiresMacro ? `Parameter count (${paramCount}) exceeds COM limit (${this.PARAMETER_LIMIT})` : undefined
+      count,
+      complexity: count <= 8 ? 'simple' : count <= 12 ? 'moderate' : 'complex',
+      hasOptionals: Object.values(params).some(v => v === undefined || v === null)
     };
   }
-  
+
   /**
-   * Analyze revolve parameters
+   * Determine execution strategy for a feature operation
    */
-  static analyzeRevolve(params: RevolveParameters): {
-    requiresMacro: boolean;
-    complexity: 'simple' | 'medium' | 'complex';
-    parameterCount: number;
-  } {
-    let paramCount = 5; // Base parameters
-    
-    if (params.thinFeature) paramCount += 3;
-    if (params.merge === false) paramCount += 1;
-    if (params.direction && params.direction !== 0) paramCount += 1;
-    
-    // Revolve2 has exactly 12 parameters, so we're safe for most cases
-    const requiresMacro = (params.thinFeature === true) && paramCount > this.PARAMETER_LIMIT;
-    
-    return {
-      requiresMacro,
-      complexity: paramCount <= 8 ? 'simple' : paramCount <= 12 ? 'medium' : 'complex',
-      parameterCount: paramCount
-    };
-  }
-  
-  /**
-   * Analyze sweep parameters - always complex
-   */
-  static analyzeSweep(params: SweepParameters): {
-    requiresMacro: boolean;
-    complexity: 'simple' | 'medium' | 'complex';
-    parameterCount: number;
-  } {
-    // Sweep is always complex due to parameter count
-    return {
-      requiresMacro: true, // FeatureSweep has 14+ parameters
-      complexity: 'complex',
-      parameterCount: 14 + (params.thinFeature ? 3 : 0)
-    };
-  }
-  
-  /**
-   * Analyze loft parameters
-   */
-  static analyzeLoft(params: LoftParameters): {
-    requiresMacro: boolean;
-    complexity: 'simple' | 'medium' | 'complex';
-    parameterCount: number;
-  } {
-    const hasGuides = params.guides && params.guides.length > 0;
-    const hasCenterCurve = params.centerCurve !== undefined;
-    const hasThin = params.thinFeature === true;
-    
-    // FeatureLoft3 has 15+ parameters when using advanced options
-    const requiresMacro = hasGuides || hasCenterCurve || hasThin;
-    
-    return {
-      requiresMacro,
-      complexity: requiresMacro ? 'complex' : 'medium',
-      parameterCount: 12 + (hasGuides ? 2 : 0) + (hasCenterCurve ? 1 : 0) + (hasThin ? 3 : 0)
-    };
-  }
-  
-  /**
-   * Get feature complexity info by method name
-   */
-  static getFeatureComplexity(methodName: string): FeatureComplexity | undefined {
-    return this.FEATURE_COMPLEXITIES[methodName];
-  }
-  
-  /**
-   * Determine if a feature creation will succeed with direct COM call
-   */
-  static canUseDirectCOM(featureType: string, params: any): boolean {
-    switch (featureType) {
-      case 'extrusion':
-        return !this.analyzeExtrusion(params).requiresMacro;
-      case 'revolve':
-        return !this.analyzeRevolve(params).requiresMacro;
-      case 'sweep':
-        return false; // Always requires macro
-      case 'loft':
-        return !this.analyzeLoft(params).requiresMacro;
-      default:
-        // For unknown features, check if we have complexity info
-        const complexity = this.getFeatureComplexity(featureType);
-        return complexity ? !complexity.requiresMacro : true;
-    }
-  }
-  
-  /**
-   * Get recommended approach for feature creation
-   */
-  static getRecommendedApproach(featureType: string, params: any): {
-    approach: 'direct' | 'macro' | 'simplified';
-    reason: string;
-    simplificationSuggestions?: string[];
-  } {
-    const canUseDirect = this.canUseDirectCOM(featureType, params);
-    
-    if (canUseDirect) {
+  static determineStrategy(
+    methodName: string,
+    parameters: Record<string, any>
+  ): ExecutionStrategy {
+    const complexity = this.FEATURE_COMPLEXITIES[methodName];
+    const paramAnalysis = this.analyzeParameters(parameters);
+
+    // Unknown method - default to direct COM with low confidence
+    if (!complexity) {
+      logger.warn(`Unknown method: ${methodName}, defaulting to direct COM`);
       return {
-        approach: 'direct',
-        reason: 'Parameters within COM limit'
+        method: methodName,
+        strategy: 'direct-com',
+        confidence: 0.5,
+        reason: 'Unknown method - attempting direct COM',
+        estimatedSuccessRate: 0.7
       };
     }
-    
-    // Check if we can simplify parameters to use direct COM
-    const suggestions: string[] = [];
-    
-    if (featureType === 'extrusion' && params as ExtrusionParameters) {
-      const extParams = params as ExtrusionParameters;
-      if (extParams.thinFeature) {
-        suggestions.push('Remove thin feature and use shell instead');
-      }
-      if (extParams.capEnds) {
-        suggestions.push('Create caps as separate features');
-      }
-      if (extParams.bothDirections && extParams.depth2) {
-        suggestions.push('Create as two separate extrusions');
-      }
-    }
-    
-    if (suggestions.length > 0) {
+
+    // Complex feature requiring macro
+    if (complexity.requiresMacro || paramAnalysis.count > this.COM_PARAMETER_LIMIT) {
       return {
-        approach: 'simplified',
-        reason: 'Can simplify to use direct COM',
-        simplificationSuggestions: suggestions
+        method: methodName,
+        strategy: 'vba-macro',
+        confidence: 0.95,
+        reason: `Method has ${complexity.parameterCount} parameters (limit: ${this.COM_PARAMETER_LIMIT})`,
+        estimatedSuccessRate: 0.98
       };
     }
-    
+
+    // Hybrid approach for moderate complexity
+    if (paramAnalysis.count > this.HYBRID_THRESHOLD) {
+      return {
+        method: methodName,
+        strategy: 'hybrid',
+        confidence: 0.85,
+        reason: `${paramAnalysis.count} parameters - will try COM first, fallback to macro`,
+        estimatedSuccessRate: 0.95
+      };
+    }
+
+    // Simple operation - direct COM
     return {
-      approach: 'macro',
-      reason: 'Parameters exceed COM limit, macro fallback required'
+      method: methodName,
+      strategy: 'direct-com',
+      confidence: 0.99,
+      reason: `Simple operation with ${paramAnalysis.count} parameters`,
+      estimatedSuccessRate: 0.99
     };
   }
-  
+
   /**
-   * Generate performance metrics for feature creation methods
+   * Check if a method requires VBA macro fallback
    */
-  static getPerformanceMetrics(): {
-    directCOM: string[];
-    macroRequired: string[];
-    borderline: string[];
-  } {
-    const directCOM: string[] = [];
-    const macroRequired: string[] = [];
-    const borderline: string[] = [];
-    
-    for (const [name, complexity] of Object.entries(this.FEATURE_COMPLEXITIES)) {
-      if (complexity.parameterCount <= 10) {
-        directCOM.push(name);
-      } else if (complexity.parameterCount === 11 || complexity.parameterCount === 12) {
-        borderline.push(name);
-      } else {
-        macroRequired.push(name);
-      }
+  static requiresMacro(methodName: string): boolean {
+    const complexity = this.FEATURE_COMPLEXITIES[methodName];
+    return complexity?.requiresMacro ?? false;
+  }
+
+  /**
+   * Get parameter count for a method
+   */
+  static getParameterCount(methodName: string): number {
+    const complexity = this.FEATURE_COMPLEXITIES[methodName];
+    return complexity?.parameterCount ?? 0;
+  }
+
+  /**
+   * Get critical parameters that must be set correctly
+   */
+  static getCriticalParameters(methodName: string): string[] {
+    const complexity = this.FEATURE_COMPLEXITIES[methodName];
+    return complexity?.criticalParameters ?? [];
+  }
+
+  /**
+   * Analyze extrusion parameters specifically
+   */
+  static analyzeExtrusion(params: ExtrusionParameters): ExecutionStrategy {
+    // Count actual parameters being used
+    let paramCount = 0;
+    const criticalParams: string[] = [];
+
+    if (params.depth) { paramCount++; criticalParams.push('depth'); }
+    if (params.draft !== undefined && params.draft !== 0) {
+      paramCount += 2;
+      criticalParams.push('draft', 'draftWhileExtruding');
     }
-    
-    return { directCOM, macroRequired, borderline };
+    if (params.bothDirections) {
+      paramCount += 2;
+      criticalParams.push('bothDirections', 'depth2');
+    }
+    if (params.thinFeature) {
+      paramCount += 3;
+      criticalParams.push('thinFeature', 'thinThickness', 'capEnds');
+    }
+    if (params.reverse) { paramCount++; criticalParams.push('reverse'); }
+    if (params.endCondition && params.endCondition !== 'Blind') {
+      paramCount++;
+      criticalParams.push('endCondition');
+    }
+
+    // Always count base parameters
+    paramCount += 5; // sd, flip, dir, t1, t2
+
+    const strategy = paramCount > this.COM_PARAMETER_LIMIT ? 'vba-macro' :
+                      paramCount > this.HYBRID_THRESHOLD ? 'hybrid' : 'direct-com';
+
+    return {
+      method: 'FeatureExtrusion3',
+      strategy,
+      confidence: strategy === 'vba-macro' ? 0.95 : 0.85,
+      reason: `Extrusion with ${paramCount} effective parameters (${criticalParams.join(', ')})`,
+      estimatedSuccessRate: strategy === 'vba-macro' ? 0.98 : 0.90
+    };
+  }
+
+  /**
+   * Get all methods that require macro fallback
+   */
+  static getComplexMethods(): string[] {
+    return Object.entries(this.FEATURE_COMPLEXITIES)
+      .filter(([_, complexity]) => complexity.requiresMacro)
+      .map(([method, _]) => method);
+  }
+
+  /**
+   * Get statistics about feature complexity
+   */
+  static getComplexityStats(): {
+    total: number;
+    requireMacro: number;
+    directCOM: number;
+    percentage: number;
+  } {
+    const total = Object.keys(this.FEATURE_COMPLEXITIES).length;
+    const requireMacro = this.getComplexMethods().length;
+    const directCOM = total - requireMacro;
+
+    return {
+      total,
+      requireMacro,
+      directCOM,
+      percentage: (requireMacro / total) * 100
+    };
+  }
+
+  /**
+   * Log complexity analysis for debugging
+   */
+  static logAnalysis(methodName: string, params: Record<string, any>): void {
+    const strategy = this.determineStrategy(methodName, params);
+    const paramAnalysis = this.analyzeParameters(params);
+
+    logger.info('Feature complexity analysis', {
+      method: methodName,
+      strategy: strategy.strategy,
+      confidence: strategy.confidence,
+      parameterCount: paramAnalysis.count,
+      complexity: paramAnalysis.complexity,
+      reason: strategy.reason,
+      estimatedSuccessRate: strategy.estimatedSuccessRate
+    });
   }
 }
 
 /**
- * Feature optimization helper
+ * Helper function to determine if direct COM should be attempted
  */
-export class FeatureOptimizer {
-  /**
-   * Split complex extrusion into simpler operations
-   */
-  static splitComplexExtrusion(params: ExtrusionParameters): ExtrusionParameters[] {
-    const operations: ExtrusionParameters[] = [];
-    
-    // If both directions, split into two
-    if (params.bothDirections && params.depth2) {
-      operations.push({
-        depth: params.depth,
-        reverse: params.reverse,
-        draft: params.draft,
-        merge: params.merge
-      });
-      
-      operations.push({
-        depth: params.depth2,
-        reverse: !params.reverse,
-        draft: params.draft,
-        merge: true
-      });
-    } else {
-      // Single direction but maybe with thin feature
-      if (params.thinFeature) {
-        // Create solid first, then shell
-        operations.push({
-          depth: params.depth,
-          reverse: params.reverse,
-          draft: params.draft,
-          merge: params.merge
-        });
-        // Note: Shell operation would be added separately
-      } else {
-        operations.push(params);
-      }
-    }
-    
-    return operations;
-  }
-  
-  /**
-   * Optimize feature parameters for COM compatibility
-   */
-  static optimizeForCOM<T extends Record<string, any>>(
-    featureType: string, 
-    params: T
-  ): { optimized: T; warnings: string[] } {
-    const warnings: string[] = [];
-    const optimized = { ...params };
-    
-    // Remove undefined and null values
-    for (const key in optimized) {
-      if (optimized[key] === undefined || optimized[key] === null) {
-        delete optimized[key];
-      }
-    }
-    
-    // Feature-specific optimizations
-    if (featureType === 'extrusion') {
-      const extParams = optimized as unknown as ExtrusionParameters;
-      
-      // Warn about complex parameters
-      if (extParams.thinFeature && extParams.capEnds) {
-        warnings.push('Thin feature with caps requires macro fallback');
-      }
-      
-      if (extParams.bothDirections && extParams.depth2 && extParams.depth2 !== extParams.depth) {
-        warnings.push('Asymmetric both-directions extrusion requires macro fallback');
-      }
-    }
-    
-    return { optimized: optimized as T, warnings };
+export function shouldAttemptDirectCOM(methodName: string, params: Record<string, any>): boolean {
+  const strategy = FeatureComplexityAnalyzer.determineStrategy(methodName, params);
+  return strategy.strategy === 'direct-com' || strategy.strategy === 'hybrid';
+}
+
+/**
+ * Helper function to determine if macro fallback should be used
+ */
+export function shouldUseMacroFallback(methodName: string, params: Record<string, any>): boolean {
+  const strategy = FeatureComplexityAnalyzer.determineStrategy(methodName, params);
+  return strategy.strategy === 'vba-macro';
+}
+
+/**
+ * Helper function to get recommended approach
+ */
+export function getRecommendedApproach(methodName: string, params: Record<string, any>): string {
+  const strategy = FeatureComplexityAnalyzer.determineStrategy(methodName, params);
+
+  switch (strategy.strategy) {
+    case 'direct-com':
+      return 'Use direct COM call';
+    case 'vba-macro':
+      return 'Use VBA macro generation';
+    case 'hybrid':
+      return 'Try direct COM first, fallback to VBA macro on failure';
+    default:
+      return 'Unknown strategy';
   }
 }
