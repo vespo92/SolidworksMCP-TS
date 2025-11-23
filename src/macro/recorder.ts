@@ -13,6 +13,13 @@ export class MacroRecorder {
   private actionHandlers: Map<string, (action: MacroAction) => Promise<any>> = new Map();
 
   /**
+   * Check if a recording is in progress
+   */
+  isRecording(): boolean {
+    return this.currentRecording !== null;
+  }
+
+  /**
    * Start a new macro recording
    */
   startRecording(name: string, description: string = ''): string {

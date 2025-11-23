@@ -16,6 +16,13 @@ export interface LoggerConfig {
   maxFiles?: number;
 }
 
+/**
+ * Create a logger instance with the given configuration
+ */
+export function createLogger(config: LoggerConfig & { service?: string } = {}): Logger {
+  return new Logger(config);
+}
+
 export class Logger implements ILogger {
   private winston: winston.Logger;
 

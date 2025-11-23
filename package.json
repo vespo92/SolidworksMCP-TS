@@ -1,18 +1,27 @@
 {
   "name": "solidworks-mcp-server",
-  "version": "3.0.9",
-  "description": "Clean Architecture SolidWorks MCP Server - Production-ready with SOLID principles",
+  "version": "3.1.0",
+  "description": "Dynamic Architecture SolidWorks MCP Server - Plugin system, middleware pipeline, and feature flags",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "solidworks-mcp-server": "./dist/index.js"
+    "solidworks-mcp-server": "./dist/index.js",
+    "solidworks-mcp-dynamic": "./dist/index.dynamic.js"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./dynamic": "./dist/index.dynamic.js",
+    "./tools": "./dist/core/tools/index.js",
+    "./plugins/*": "./dist/plugins/*/index.js"
   },
   "scripts": {
     "build": "tsc",
     "build:refactored": "tsc --project tsconfig.refactored.json",
     "dev": "tsx watch src/index.ts",
+    "dev:dynamic": "tsx watch src/index.dynamic.ts",
     "dev:refactored": "tsx watch src/index.refactored.ts",
     "start": "node dist/index.js",
+    "start:dynamic": "node dist/index.dynamic.js",
     "start:refactored": "node dist/index.refactored.js",
     "migrate": "tsx Fixes-V2/migrate.ts",
     "lint": "eslint src",
@@ -59,7 +68,11 @@
     "vba",
     "clean-architecture",
     "solid-principles",
-    "production-ready"
+    "production-ready",
+    "plugin-system",
+    "middleware",
+    "feature-flags",
+    "dynamic-tools"
   ],
   "author": "SolidWorks MCP Contributors",
   "license": "MIT",
