@@ -324,7 +324,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
       // Select profiles
       for (const profile of params.profiles) {
         this.currentModel.Extension.SelectByID2(
-          profile, 'SKETCH', 0, 0, 0, true, 0, null, 0
+          profile, 'SKETCH', 0, 0, 0, true, 0, undefined, 0
         );
       }
       
@@ -390,12 +390,31 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   // Helper Methods
   
   private selectSketchForFeature(): boolean {
+    // Method 1: Feature tree traversal (most reliable, avoids SelectByID2 COM issues)
+    try {
+      const featureCount = this.currentModel.GetFeatureCount();
+      for (let i = 0; i < Math.min(10, featureCount); i++) {
+        const feat = this.currentModel.FeatureByPositionReverse(i);
+        if (feat) {
+          const typeName = feat.GetTypeName2();
+          if (typeName && (typeName === 'ProfileFeature' || typeName.toLowerCase().includes('sketch'))) {
+            feat.Select2(false, 0);
+            logger.info(`Selected sketch by feature tree: ${feat.Name || feat.GetName()}`);
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn(`Feature tree search failed: ${e}`);
+    }
+
+    // Method 2: SelectByID2 with undefined Callout (not null, to avoid VT_NULL type mismatch)
     const ext = this.currentModel.Extension;
     const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
-    
+
     for (const name of sketchNames) {
       try {
-        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
+        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, undefined, 0);
         if (selected) {
           logger.info(`Selected sketch: ${name}`);
           return true;
@@ -404,7 +423,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
         // Try next
       }
     }
-    
+
     return false;
   }
   
@@ -563,7 +582,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     if (!this.currentModel) throw new Error('No active model');
     
     const ext = this.currentModel.Extension;
-    ext.SelectByID2(plane + ' Plane', 'PLANE', 0, 0, 0, false, 0, null, 0);
+    ext.SelectByID2(plane + ' Plane', 'PLANE', 0, 0, 0, false, 0, undefined, 0);
     this.currentModel.SketchManager.InsertSketch(true);
     
     return this.currentModel.SketchManager.ActiveSketch.Name;

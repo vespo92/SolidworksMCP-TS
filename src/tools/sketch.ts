@@ -147,7 +147,7 @@ export const sketchTools = [
         if (!model) throw new Error('No active model');
         
         // Select the sketch
-        const selected = model.Extension.SelectByID2(args.sketchName, 'SKETCH', 0, 0, 0, false, 0, null, 0);
+        const selected = model.Extension.SelectByID2(args.sketchName, 'SKETCH', 0, 0, 0, false, 0, undefined, 0);
         if (!selected) throw new Error('Sketch not found');
         
         // Edit sketch
@@ -695,14 +695,14 @@ export const sketchTools = [
         
         // Select entities
         model.ClearSelection2(true);
-        model.Extension.SelectByID2(args.entity1, 'SKETCHSEGMENT', 0, 0, 0, false, 0, null, 0);
+        model.Extension.SelectByID2(args.entity1, 'SKETCHSEGMENT', 0, 0, 0, false, 0, undefined, 0);
         
         if (args.entity2) {
-          model.Extension.SelectByID2(args.entity2, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          model.Extension.SelectByID2(args.entity2, 'SKETCHSEGMENT', 0, 0, 0, true, 0, undefined, 0);
         }
         
         if (args.entity3) {
-          model.Extension.SelectByID2(args.entity3, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          model.Extension.SelectByID2(args.entity3, 'SKETCHSEGMENT', 0, 0, 0, true, 0, undefined, 0);
         }
         
         // Add constraint
@@ -744,7 +744,7 @@ export const sketchTools = [
         
         // Select entity
         model.ClearSelection2(true);
-        model.Extension.SelectByID2(args.entity, 'SKETCHSEGMENT', 0, 0, 0, false, 0, null, 0);
+        model.Extension.SelectByID2(args.entity, 'SKETCHSEGMENT', 0, 0, 0, false, 0, undefined, 0);
         
         // Add dimension
         const textX = args.position?.x || 0;
@@ -815,7 +815,7 @@ export const sketchTools = [
         // Select entities to pattern
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, undefined, 0);
         });
         
         // Create pattern
@@ -857,7 +857,7 @@ export const sketchTools = [
         // Select entities to pattern
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, undefined, 0);
         });
         
         // Calculate angular spacing
@@ -898,11 +898,11 @@ export const sketchTools = [
         // Select entities to mirror
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, undefined, 0);
         });
         
         // Select mirror line
-        model.Extension.SelectByID2(args.mirrorLine, 'SKETCHSEGMENT', 0, 0, 0, true, 1, null, 0);
+        model.Extension.SelectByID2(args.mirrorLine, 'SKETCHSEGMENT', 0, 0, 0, true, 1, undefined, 0);
         
         // Mirror entities
         model.SketchManager.MirrorSketch();
@@ -937,7 +937,7 @@ export const sketchTools = [
         // Select entities to offset
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, undefined, 0);
         });
         
         // Create offset

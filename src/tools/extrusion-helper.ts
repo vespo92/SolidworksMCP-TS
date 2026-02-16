@@ -21,18 +21,39 @@ export const extrusionHelper = {
       // Clear selections
       model.ClearSelection2(true);
       
-      // Select the sketch using a simpler approach
+      // Select the sketch - try feature tree first, then SelectByID2
       let sketchFound = false;
-      const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3'];
-      
-      for (const name of sketchNames) {
-        try {
-          if (ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 4, null, 0)) {
-            sketchFound = true;
-            break;
+
+      // Method 1: Feature tree traversal (most reliable)
+      try {
+        const featureCount = model.GetFeatureCount();
+        for (let i = 0; i < Math.min(10, featureCount); i++) {
+          const feat = model.FeatureByPositionReverse(i);
+          if (feat) {
+            const typeName = feat.GetTypeName2();
+            if (typeName && (typeName === 'ProfileFeature' || typeName.toLowerCase().includes('sketch'))) {
+              feat.Select2(false, 4);
+              sketchFound = true;
+              break;
+            }
           }
-        } catch (e) {
-          continue;
+        }
+      } catch (e) {
+        // Fall through to SelectByID2
+      }
+
+      // Method 2: SelectByID2 with undefined Callout (not null, avoids VT_NULL type mismatch)
+      if (!sketchFound) {
+        const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3'];
+        for (const name of sketchNames) {
+          try {
+            if (ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 4, undefined, 0)) {
+              sketchFound = true;
+              break;
+            }
+          } catch (e) {
+            continue;
+          }
         }
       }
       

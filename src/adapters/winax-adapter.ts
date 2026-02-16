@@ -529,12 +529,31 @@ export class WinAxAdapter implements ISolidWorksAdapter {
   }
   
   private selectSketchForExtrusion(): boolean {
+    // Method 1: Feature tree traversal (most reliable, avoids SelectByID2 COM issues)
+    try {
+      const featureCount = this.currentModel.GetFeatureCount();
+      for (let i = 0; i < Math.min(10, featureCount); i++) {
+        const feat = this.currentModel.FeatureByPositionReverse(i);
+        if (feat) {
+          const typeName = feat.GetTypeName2();
+          if (typeName && (typeName === 'ProfileFeature' || typeName.toLowerCase().includes('sketch'))) {
+            feat.Select2(false, 0);
+            logger.info(`Selected sketch by feature tree: ${feat.Name || feat.GetName()}`);
+            return true;
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn(`Feature tree search failed: ${e}`);
+    }
+
+    // Method 2: SelectByID2 with undefined Callout (not null, to avoid VT_NULL type mismatch)
     const ext = this.currentModel.Extension;
     const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
-    
+
     for (const name of sketchNames) {
       try {
-        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
+        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, undefined, 0);
         if (selected) {
           logger.info(`Selected sketch: ${name}`);
           return true;
@@ -543,24 +562,7 @@ export class WinAxAdapter implements ISolidWorksAdapter {
         // Try next name
       }
     }
-    
-    // Try to select the last sketch feature
-    try {
-      const featureCount = this.currentModel.GetFeatureCount();
-      for (let i = 0; i < Math.min(10, featureCount); i++) {
-        const feat = this.currentModel.FeatureByPositionReverse(i);
-        if (feat) {
-          const typeName = feat.GetTypeName2();
-          if (typeName && typeName.toLowerCase().includes('sketch')) {
-            feat.Select2(false, 0);
-            return true;
-          }
-        }
-      }
-    } catch (e) {
-      // Failed to select sketch
-    }
-    
+
     return false;
   }
   
@@ -635,7 +637,7 @@ export class WinAxAdapter implements ISolidWorksAdapter {
     const ext = this.currentModel.Extension;
     
     // Select the plane
-    const selected = ext.SelectByID2(plane, 'PLANE', 0, 0, 0, false, 0, null, 0);
+    const selected = ext.SelectByID2(plane, 'PLANE', 0, 0, 0, false, 0, undefined, 0);
     if (!selected) {
       throw new Error(`Failed to select plane: ${plane}`);
     }
