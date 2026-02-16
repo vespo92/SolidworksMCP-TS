@@ -69,15 +69,16 @@ export const modelingTools = [
   
   {
     name: 'create_extrusion',
-    description: 'Create an extrusion feature',
+    description: 'Create an extrusion (boss/base) feature from a sketch. Auto-detects the sketch or specify one explicitly.',
     inputSchema: z.object({
       depth: z.number().describe('Extrusion depth in mm'),
       draft: z.number().default(0).describe('Draft angle in degrees'),
       reverse: z.boolean().default(false).describe('Reverse direction'),
+      sketchName: z.string().optional().describe('Specific sketch name to extrude (e.g., "Sketch1"). Auto-detects if not specified.'),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const feature = swApi.createExtrude(args.depth, args.draft, args.reverse);
+        const feature = swApi.createExtrude(args.depth, args.draft, args.reverse, args.sketchName);
         return `Created extrusion: ${feature.name}`;
       } catch (error) {
         return `Failed to create extrusion: ${error}`;

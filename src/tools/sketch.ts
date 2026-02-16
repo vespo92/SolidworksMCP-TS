@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { SolidWorksAPI } from '../solidworks/api.js';
+import { safeSelectByID2, selectPlane } from '../utils/com-helpers.js';
 
 /**
  * Complete set of sketch creation and manipulation tools
@@ -60,37 +61,18 @@ export const sketchTools = [
           const planeIndex = args.plane === 'Front' ? 0 : args.plane === 'Top' ? 1 : 2;
           
           try {
-            // Get reference geometry
-            const refGeom = model.FeatureManager;
-            if (refGeom) {
-              // Try to get the plane directly
-              const planes = ['Front Plane', 'Top Plane', 'Right Plane'];
-              const planeName = planes[planeIndex];
-              
-              // Use simpler selection approach
-              model.ClearSelection2(true);
-              
-              // Try selecting by feature name
-              let selected = false;
-              try {
-                const feature = model.FeatureByName(planeName);
-                if (feature) {
-                  feature.Select2(false, 0);
-                  selected = true;
-                }
-              } catch (e) {
-                // Feature selection failed, continue
-              }
-              
-              // If feature selection didn't work, just proceed
-              // SolidWorks often defaults to Front plane anyway
-              if (!selected && args.plane !== 'Front') {
-                console.log(`Note: Could not select ${args.plane} plane, using default`);
-              }
+            model.ClearSelection2(true);
+
+            // Use the safe plane selection helper
+            const selected = selectPlane(model, args.plane);
+
+            // If plane selection didn't work, just proceed
+            // SolidWorks often defaults to Front plane anyway
+            if (!selected && args.plane !== 'Front') {
+              // Plane selection failed, will use default
             }
           } catch (e) {
             // Plane selection failed, but continue anyway
-            console.log('Note: Plane selection failed, using default');
           }
           
           // Create offset plane if needed
@@ -146,9 +128,9 @@ export const sketchTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No active model');
         
-        // Select the sketch
-        const selected = model.Extension.SelectByID2(args.sketchName, 'SKETCH', 0, 0, 0, false, 0, null, 0);
-        if (!selected) throw new Error('Sketch not found');
+        // Select the sketch using safe COM helper
+        const selected = safeSelectByID2(model, args.sketchName, 'SKETCH');
+        if (!selected) throw new Error(`Sketch "${args.sketchName}" not found`);
         
         // Edit sketch
         model.EditSketch();
@@ -693,16 +675,16 @@ export const sketchTools = [
         
         const constraintType = constraintMap[args.type];
         
-        // Select entities
+        // Select entities using safe COM helper
         model.ClearSelection2(true);
-        model.Extension.SelectByID2(args.entity1, 'SKETCHSEGMENT', 0, 0, 0, false, 0, null, 0);
-        
+        safeSelectByID2(model, args.entity1, 'SKETCHSEGMENT');
+
         if (args.entity2) {
-          model.Extension.SelectByID2(args.entity2, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          safeSelectByID2(model, args.entity2, 'SKETCHSEGMENT', 0, 0, 0, true);
         }
-        
+
         if (args.entity3) {
-          model.Extension.SelectByID2(args.entity3, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          safeSelectByID2(model, args.entity3, 'SKETCHSEGMENT', 0, 0, 0, true);
         }
         
         // Add constraint
@@ -742,9 +724,9 @@ export const sketchTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No active model');
         
-        // Select entity
+        // Select entity using safe COM helper
         model.ClearSelection2(true);
-        model.Extension.SelectByID2(args.entity, 'SKETCHSEGMENT', 0, 0, 0, false, 0, null, 0);
+        safeSelectByID2(model, args.entity, 'SKETCHSEGMENT');
         
         // Add dimension
         const textX = args.position?.x || 0;
@@ -812,12 +794,12 @@ export const sketchTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No active model');
         
-        // Select entities to pattern
+        // Select entities to pattern using safe COM helper
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          safeSelectByID2(model, entity, 'SKETCHSEGMENT', 0, 0, 0, true);
         });
-        
+
         // Create pattern
         const totalInstances = args.direction1.count * (args.direction2?.count || 1);
         
@@ -854,12 +836,12 @@ export const sketchTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No active model');
         
-        // Select entities to pattern
+        // Select entities to pattern using safe COM helper
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          safeSelectByID2(model, entity, 'SKETCHSEGMENT', 0, 0, 0, true);
         });
-        
+
         // Calculate angular spacing
         const angleStep = args.angle / (args.equalSpacing ? args.count : args.count - 1);
         
@@ -895,14 +877,14 @@ export const sketchTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No active model');
         
-        // Select entities to mirror
+        // Select entities to mirror using safe COM helper
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          safeSelectByID2(model, entity, 'SKETCHSEGMENT', 0, 0, 0, true);
         });
-        
+
         // Select mirror line
-        model.Extension.SelectByID2(args.mirrorLine, 'SKETCHSEGMENT', 0, 0, 0, true, 1, null, 0);
+        safeSelectByID2(model, args.mirrorLine, 'SKETCHSEGMENT', 0, 0, 0, true, 1);
         
         // Mirror entities
         model.SketchManager.MirrorSketch();
@@ -934,10 +916,10 @@ export const sketchTools = [
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No active model');
         
-        // Select entities to offset
+        // Select entities to offset using safe COM helper
         model.ClearSelection2(true);
         args.entities.forEach((entity: string) => {
-          model.Extension.SelectByID2(entity, 'SKETCHSEGMENT', 0, 0, 0, true, 0, null, 0);
+          safeSelectByID2(model, entity, 'SKETCHSEGMENT', 0, 0, 0, true);
         });
         
         // Create offset

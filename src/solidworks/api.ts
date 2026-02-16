@@ -2,6 +2,7 @@
 import winax from 'winax';
 import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
+import { safeSelectByID2, selectSketchForFeature, selectPlane } from '../utils/com-helpers.js';
 
 export class SolidWorksAPI {
   private swApp: any;
@@ -205,81 +206,32 @@ export class SolidWorksAPI {
   createExtrude(
     depth: number,
     draft: number = 0,
-    reverse: boolean = false
+    reverse: boolean = false,
+    sketchName?: string
   ): SolidWorksFeature {
     if (!this.currentModel) throw new Error('No model open');
-    
+
     try {
       // Get the feature manager
       const featureMgr = this.currentModel.FeatureManager;
       if (!featureMgr) {
         throw new Error('Cannot access FeatureManager');
       }
-      
-      // Make sure we're not in sketch edit mode
-      try {
-        const sketchMgr = this.currentModel.SketchManager;
-        const activeSketch = sketchMgr.ActiveSketch;
-        if (activeSketch) {
-          // Exit sketch mode
-          sketchMgr.InsertSketch(true);
-        }
-      } catch (e) {
-        // Continue if no active sketch
+
+      // Use the shared helper to select a sketch for extrusion
+      const sketchResult = selectSketchForFeature(this.currentModel, sketchName);
+
+      if (!sketchResult.success) {
+        const errorDetail = sketchResult.errors.length > 0
+          ? ` Errors: ${sketchResult.errors.join('; ')}`
+          : '';
+        throw new Error(
+          `No sketch found to extrude.${errorDetail} ` +
+          `Please ensure a sketch exists or specify the sketch name explicitly.`
+        );
       }
-      
-      // Clear selections first
-      try {
-        this.currentModel.ClearSelection2(true);
-      } catch (e) {
-        // Continue
-      }
-      
-      // Select the sketch - try multiple methods
-      let sketchSelected = false;
-      
-      // Method 1: Try to select by name
-      const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
-      for (const name of sketchNames) {
-        try {
-          const ext = this.currentModel.Extension;
-          if (ext) {
-            const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
-            if (selected) {
-              sketchSelected = true;
-              logger.info(`Selected sketch: ${name}`);
-              break;
-            }
-          }
-        } catch (e) {
-          // Try next name
-        }
-      }
-      
-      // Method 2: Try to select the last feature if it's a sketch
-      if (!sketchSelected) {
-        try {
-          const featureCount = this.currentModel.GetFeatureCount();
-          for (let i = 0; i < Math.min(10, featureCount); i++) {
-            const feat = this.currentModel.FeatureByPositionReverse(i);
-            if (feat) {
-              const typeName = feat.GetTypeName2();
-              if (typeName && typeName.toLowerCase().includes('sketch')) {
-                feat.Select2(false, 0);
-                sketchSelected = true;
-                logger.info(`Selected sketch by position: ${i}`);
-                break;
-              }
-            }
-          }
-        } catch (e) {
-          // Continue
-        }
-      }
-      
-      if (!sketchSelected) {
-        logger.warn('Could not select sketch, attempting extrusion anyway');
-      }
+
+      logger.info(`Selected sketch for extrusion: ${sketchResult.selectedSketch}`);
       
       // Convert depth to meters
       const depthInMeters = depth / 1000;
@@ -436,7 +388,7 @@ export class SolidWorksAPI {
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, null, 0);
+        const selected = safeSelectByID2(this.currentModel, name, 'DIMENSION');
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {
@@ -451,11 +403,11 @@ export class SolidWorksAPI {
         // Selection method failed
       }
     }
-    
+
     if (!dimension) {
       throw new Error(`Dimension "${name}" not found. Try format like "D1@Sketch1" or "D1@Boss-Extrude1"`);
     }
-    
+
     // Get the value - try different properties
     let value = 0;
     try {
@@ -511,7 +463,7 @@ export class SolidWorksAPI {
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, null, 0);
+        const selected = safeSelectByID2(this.currentModel, name, 'DIMENSION');
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {
