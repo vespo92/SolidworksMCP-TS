@@ -8,7 +8,7 @@
 import winax from 'winax';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import { 
+import {
   ISolidWorksAdapter,
   Command,
   AdapterResult,
@@ -23,6 +23,7 @@ import { SolidWorksModel, SolidWorksFeature } from '../solidworks/types.js';
 import { MacroGenerator } from './macro-generator.js';
 import { FeatureComplexityAnalyzer, FeatureOptimizer } from './feature-complexity-analyzer.js';
 import { logger } from '../utils/logger.js';
+import { safeSelectByID2, selectSketchForFeature, selectPlane } from '../utils/com-helpers.js';
 
 export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   private swApp: any;
@@ -323,9 +324,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     try {
       // Select profiles
       for (const profile of params.profiles) {
-        this.currentModel.Extension.SelectByID2(
-          profile, 'SKETCH', 0, 0, 0, true, 0, null, 0
-        );
+        safeSelectByID2(this.currentModel, profile, 'SKETCH', 0, 0, 0, true, 0);
       }
       
       // Simple loft without guides (12 parameters max)
@@ -389,23 +388,14 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   
   // Helper Methods
   
-  private selectSketchForFeature(): boolean {
-    const ext = this.currentModel.Extension;
-    const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
-    
-    for (const name of sketchNames) {
-      try {
-        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
-        if (selected) {
-          logger.info(`Selected sketch: ${name}`);
-          return true;
-        }
-      } catch (e) {
-        // Try next
-      }
+  private selectSketchForFeature(sketchName?: string): boolean {
+    const result = selectSketchForFeature(this.currentModel, sketchName);
+    if (result.success) {
+      logger.info(`Selected sketch: ${result.selectedSketch}`);
+    } else {
+      logger.warn(`Failed to select sketch. Errors: ${result.errors.join('; ')}`);
     }
-    
-    return false;
+    return result.success;
   }
   
   private updateResponseTime(duration: number): void {
@@ -561,11 +551,14 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   // Sketch operations
   async createSketch(plane: string): Promise<string> {
     if (!this.currentModel) throw new Error('No active model');
-    
-    const ext = this.currentModel.Extension;
-    ext.SelectByID2(plane + ' Plane', 'PLANE', 0, 0, 0, false, 0, null, 0);
+
+    const selected = selectPlane(this.currentModel, plane);
+    if (!selected) {
+      logger.warn(`Could not select ${plane} plane, SolidWorks will use default`);
+    }
+
     this.currentModel.SketchManager.InsertSketch(true);
-    
+
     return this.currentModel.SketchManager.ActiveSketch.Name;
   }
   
