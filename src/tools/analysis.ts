@@ -18,13 +18,13 @@ export const analysisTools = [
         if (args.units === 'lb') mass *= 2.20462;
         
         return {
-          mass: `${mass.toFixed(3)} ${args.units}`,
-          volume: `${(props.volume * 1e9).toFixed(3)} mm³`,
-          surfaceArea: `${(props.surfaceArea * 1e6).toFixed(3)} mm²`,
+          mass: `${((mass ?? 0) as number).toFixed(3)} ${args.units}`,
+          volume: `${(((props.volume ?? 0) as number) * 1e9).toFixed(3)} mm³`,
+          surfaceArea: `${(((props.surfaceArea ?? 0) as number) * 1e6).toFixed(3)} mm²`,
           centerOfMass: {
-            x: `${(props.centerOfMass.x * 1000).toFixed(3)} mm`,
-            y: `${(props.centerOfMass.y * 1000).toFixed(3)} mm`,
-            z: `${(props.centerOfMass.z * 1000).toFixed(3)} mm`,
+            x: `${(((props.centerOfMass?.x ?? 0) as number) * 1000).toFixed(3)} mm`,
+            y: `${(((props.centerOfMass?.y ?? 0) as number) * 1000).toFixed(3)} mm`,
+            z: `${(((props.centerOfMass?.z ?? 0) as number) * 1000).toFixed(3)} mm`,
           },
         };
       } catch (error) {
@@ -238,14 +238,15 @@ export const analysisTools = [
             const props = swApi.getMassProperties();
             if (props && props.volume > 0) {
               // Estimate cube dimensions from volume
-              const side = Math.pow(props.volume * 1e9, 1/3); // Convert m³ to mm³
+              const vol = (props.volume ?? 0) as number;
+              const side = Math.pow(vol * 1e9, 1/3); // Convert m³ to mm³
               return {
                 dimensions: {
                   width: `~${side.toFixed(2)} mm`,
                   height: `~${side.toFixed(2)} mm`,
                   depth: `~${side.toFixed(2)} mm`,
                 },
-                volume: `${(props.volume * 1e9).toFixed(2)} mm³`,
+                volume: `${(vol * 1e9).toFixed(2)} mm³`,
                 note: 'Estimated from volume (actual bounding box unavailable)'
               };
             }

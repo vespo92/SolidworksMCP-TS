@@ -7,9 +7,14 @@ import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 import { SolidWorksAPI } from '../solidworks/api.js';
+import { MacroRecorder } from '../macro/recorder.js';
+
+// Module-level state for active macro recording sessions
+let _macroRecorder: MacroRecorder | null = null;
+let _activeMacroPath: string | null = null;
 
 /**
- * Native macro recording tools that use SolidWorks' internal VBA engine
+ * Native macro tools for creating, running, and managing SolidWorks VBA macros
  */
 export const nativeMacroTools = [
   // ============================================
@@ -18,108 +23,92 @@ export const nativeMacroTools = [
   
   {
     name: 'start_native_macro_recording',
-    description: 'Start recording a macro using SolidWorks native VBA recorder',
+    description: 'Start recording a macro that captures subsequent MCP tool calls as VBA',
     inputSchema: z.object({
-      macroPath: z.string().describe('Full path where the macro will be saved (e.g., C:\\Macros\\MyMacro.swp)'),
-      pauseRecording: z.boolean().default(false).describe('Start in paused state'),
-      recordViewCommands: z.boolean().default(false).describe('Record view manipulation commands'),
-      recordFeatureManager: z.boolean().default(true).describe('Record feature manager commands'),
-      recordSelections: z.boolean().default(true).describe('Record selection commands')
+      macroPath: z.string().describe('Full path where the macro will be saved (e.g., C:\\Macros\\MyMacro.swb)'),
+      macroName: z.string().default('RecordedMacro').describe('Name for the macro recording'),
+      description: z.string().optional().describe('Description of what the macro does'),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const swApp = swApi.getApp();
-        if (!swApp) throw new Error('SolidWorks application not connected');
-        
-        // Ensure macro path has correct extension
+        // Ensure macro path uses .swb (plain-text VBA) extension
         let macroPath = args.macroPath;
-        if (!macroPath.toLowerCase().endsWith('.swp')) {
-          macroPath = macroPath.replace(/\.[^.]*$/, '') + '.swp';
+        if (!macroPath.toLowerCase().endsWith('.swb')) {
+          macroPath = macroPath.replace(/\.[^.]*$/, '') + '.swb';
         }
-        
+
         // Ensure directory exists
         const dir = path.dirname(macroPath);
         if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true });
         }
-        
-        // Set recording options
-        swApp.SetUserPreferenceToggle(197, args.recordViewCommands); // swUserPreferenceToggle_e.swMacroRecordViewManipulation
-        swApp.SetUserPreferenceToggle(198, args.recordFeatureManager); // swUserPreferenceToggle_e.swMacroRecordFeatureManager
-        swApp.SetUserPreferenceToggle(199, args.recordSelections); // swUserPreferenceToggle_e.swMacroRecordSelections
-        
-        // Start recording using native SolidWorks API
-        // This creates a proper VBA project with all necessary references
-        const success = swApp.RecordMacro(macroPath);
-        
-        if (!success) {
-          throw new Error('Failed to start macro recording');
+
+        // Store the macro path for later retrieval on stop
+        // We use a module-level variable since the MacroRecorder doesn't track file paths
+        _activeMacroPath = macroPath;
+
+        // Use the built-in MacroRecorder to track actions
+        if (!_macroRecorder) {
+          _macroRecorder = new MacroRecorder();
         }
-        
-        // Pause if requested
-        if (args.pauseRecording) {
-          swApp.PauseMacroRecording();
-        }
-        
+        const id = _macroRecorder.startRecording(args.macroName, args.description);
+
         return {
           success: true,
-          message: 'Native macro recording started',
+          message: 'Macro recording started — subsequent MCP tool calls will be captured',
           macroPath,
-          status: args.pauseRecording ? 'paused' : 'recording',
-          options: {
-            recordViewCommands: args.recordViewCommands,
-            recordFeatureManager: args.recordFeatureManager,
-            recordSelections: args.recordSelections
-          }
+          recordingId: id,
+          status: 'recording',
         };
       } catch (error) {
-        return `Failed to start native macro recording: ${error}`;
+        return `Failed to start macro recording: ${error}`;
       }
     }
   },
 
   {
     name: 'stop_native_macro_recording',
-    description: 'Stop the current native macro recording and save',
+    description: 'Stop the current macro recording and save as a .swb VBA file',
     inputSchema: z.object({
-      openInEditor: z.boolean().default(false).describe('Open macro in VBA editor after saving'),
       runMacro: z.boolean().default(false).describe('Run the macro immediately after saving')
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const swApp = swApi.getApp();
-        if (!swApp) throw new Error('SolidWorks application not connected');
-        
-        // Stop recording - this properly saves the macro with all VBA initialization
-        swApp.StopMacroRecording();
-        
-        // Get the last recorded macro path
-        const lastMacroPath = swApp.GetUserPreferenceStringValue(69); // swUserPreferenceStringValue_e.swFileLocationsMacros
-        
-        // Open in editor if requested
-        if (args.openInEditor) {
-          swApp.EditMacro(lastMacroPath);
+        if (!_macroRecorder) {
+          throw new Error('No macro recorder active — call start_native_macro_recording first');
         }
-        
+
+        // Stop recording and export to VBA
+        const recording = _macroRecorder.stopRecording();
+        if (!recording) {
+          throw new Error('No recording in progress');
+        }
+
+        const vbaCode = _macroRecorder.exportToVBA(recording.id);
+        const macroPath = _activeMacroPath || path.join(process.env.TEMP || '/tmp', `macro_${Date.now()}.swb`);
+
+        // Write the .swb file (plain-text VBA format, natively supported by SolidWorks)
+        fs.writeFileSync(macroPath, vbaCode, 'utf8');
+
         // Run macro if requested
         if (args.runMacro) {
-          swApp.RunMacro2(
-            lastMacroPath,
-            "main", // Default module name
-            "main", // Default procedure name
-            1 // swRunMacroOption_e.swRunMacroUnloadAfterRun
-          );
+          const swApp = swApi.getApp();
+          if (swApp) {
+            swApp.RunMacro2(macroPath, 'main', 'main', 1, 0);
+          }
         }
-        
+
+        _activeMacroPath = null;
+
         return {
           success: true,
-          message: 'Native macro recording stopped and saved',
-          macroPath: lastMacroPath,
-          openedInEditor: args.openInEditor,
-          executed: args.runMacro
+          message: `Macro recording saved to ${macroPath}`,
+          macroPath,
+          actionCount: recording.actions.length,
+          executed: args.runMacro,
         };
       } catch (error) {
-        return `Failed to stop native macro recording: ${error}`;
+        return `Failed to stop macro recording: ${error}`;
       }
     }
   },
@@ -269,52 +258,31 @@ export const nativeMacroTools = [
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const swApp = swApi.getApp();
-        if (!swApp) throw new Error('SolidWorks application not connected');
-        
-        // Ensure macro path has correct extension
+        // Use .swb (plain-text VBA) which SolidWorks natively supports
         let macroPath = args.macroPath;
-        if (!macroPath.toLowerCase().endsWith('.swp')) {
-          macroPath = macroPath.replace(/\.[^.]*$/, '') + '.swp';
+        if (!macroPath.toLowerCase().endsWith('.swb') && !macroPath.toLowerCase().endsWith('.swp')) {
+          macroPath = macroPath.replace(/\.[^.]*$/, '') + '.swb';
         }
-        
+        // Prefer .swb since we're writing plain text
+        if (macroPath.toLowerCase().endsWith('.swp')) {
+          macroPath = macroPath.replace(/\.swp$/i, '.swb');
+        }
+
         // Create directory if needed
         const dir = path.dirname(macroPath);
         if (!fs.existsSync(dir)) {
           fs.mkdirSync(dir, { recursive: true });
         }
-        
-        // Start recording to create proper VBA project
-        swApp.RecordMacro(macroPath);
-        
-        // Immediately stop to get the initialized project
-        swApp.StopMacroRecording();
-        
-        // Now edit the macro to add our template code
-        swApp.EditMacro(macroPath);
-        
-        // Get VBA environment
-        const vbaEditor = swApp.GetAddInObject("VBA.Editor");
-        const vbaProject = vbaEditor.ActiveVBProject;
-        const codeModule = vbaProject.VBComponents("Module1").CodeModule;
-        
-        // Clear existing code
-        if (codeModule.CountOfLines > 0) {
-          codeModule.DeleteLines(1, codeModule.CountOfLines);
-        }
-        
+
         // Build template code based on type
-        let templateCode = generateMacroTemplate(args);
-        
-        // Insert the template code
-        codeModule.InsertLines(1, templateCode);
-        
-        // Save the macro
-        vbaProject.Save();
-        
+        const templateCode = generateMacroTemplate(args);
+
+        // Write the .swb file directly — no COM VBA editor needed
+        fs.writeFileSync(macroPath, templateCode, 'utf8');
+
         return {
           success: true,
-          message: 'Initialized macro created successfully',
+          message: `Initialized macro created at ${macroPath}`,
           macroPath,
           macroName: args.macroName,
           template: args.template,
@@ -328,74 +296,36 @@ export const nativeMacroTools = [
 
   {
     name: 'convert_text_to_native_macro',
-    description: 'Convert plain text VBA code to a properly initialized SolidWorks macro',
+    description: 'Convert plain text VBA code to a properly initialized SolidWorks macro (.swb)',
     inputSchema: z.object({
       vbaCode: z.string().describe('Plain text VBA code to convert'),
       outputPath: z.string().describe('Path where the converted macro will be saved'),
       macroName: z.string().describe('Name for the macro'),
       addInitialization: z.boolean().default(true).describe('Add SolidWorks initialization code'),
-      addReferences: z.boolean().default(true).describe('Add required type library references')
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const swApp = swApi.getApp();
-        if (!swApp) throw new Error('SolidWorks application not connected');
-        
-        // Ensure output path has correct extension
+        // Use .swb (plain-text VBA) extension
         let outputPath = args.outputPath;
-        if (!outputPath.toLowerCase().endsWith('.swp')) {
-          outputPath = outputPath.replace(/\.[^.]*$/, '') + '.swp';
+        if (!outputPath.toLowerCase().endsWith('.swb') && !outputPath.toLowerCase().endsWith('.swp')) {
+          outputPath = outputPath.replace(/\.[^.]*$/, '') + '.swb';
         }
-        
-        // Create an initialized macro first
-        swApp.RecordMacro(outputPath);
-        swApp.StopMacroRecording();
-        
-        // Open in editor
-        swApp.EditMacro(outputPath);
-        
-        // Get VBA environment
-        const vbaEditor = swApp.GetAddInObject("VBA.Editor");
-        const vbaProject = vbaEditor.ActiveVBProject;
-        
-        // Add required references if needed
-        if (args.addReferences) {
-          const references = vbaProject.References;
-          
-          // Add SolidWorks type libraries if not present
-          const requiredRefs = [
-            "SldWorks 2024 Type Library",
-            "SldWorks 2024 Constant type library",
-            "SldWorks 2024 Commands type library"
-          ];
-          
-          for (const refName of requiredRefs) {
-            try {
-              references.AddFromGuid(
-                getSolidWorksTypeLibGuid(refName),
-                0, 0
-              );
-            } catch {
-              // Reference might already exist
-            }
-          }
+        if (outputPath.toLowerCase().endsWith('.swp')) {
+          outputPath = outputPath.replace(/\.swp$/i, '.swb');
         }
-        
-        // Get the code module
-        const codeModule = vbaProject.VBComponents("Module1").CodeModule;
-        
-        // Clear existing code
-        if (codeModule.CountOfLines > 0) {
-          codeModule.DeleteLines(1, codeModule.CountOfLines);
+
+        // Ensure directory exists
+        const dir = path.dirname(outputPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
         }
-        
+
         // Process the VBA code
         let processedCode = args.vbaCode;
-        
+
         // Add initialization if needed
         if (args.addInitialization && !processedCode.includes('Dim swApp')) {
-          const initCode = `
-' ${args.macroName}
+          const initCode = `' ${args.macroName}
 ' Converted from text VBA by SolidWorks MCP Server
 ' Date: ${new Date().toISOString()}
 
@@ -413,7 +343,7 @@ Dim longStatus As Long, longWarnings As Long
 `;
           processedCode = initCode + processedCode;
         }
-        
+
         // Ensure main subroutine exists
         if (!processedCode.includes('Sub main')) {
           processedCode = processedCode + `
@@ -421,30 +351,26 @@ Dim longStatus As Long, longWarnings As Long
 Sub main()
     Set swApp = Application.SldWorks
     Set swModel = swApp.ActiveDoc
-    
+
     If swModel Is Nothing Then
         MsgBox "Please open a document first."
         Exit Sub
     End If
-    
+
     ' Call your main procedure here
     ${args.macroName}
 End Sub`;
         }
-        
-        // Insert the processed code
-        codeModule.InsertLines(1, processedCode);
-        
-        // Save the macro
-        vbaProject.Save();
-        
+
+        // Write the .swb file directly
+        fs.writeFileSync(outputPath, processedCode, 'utf8');
+
         return {
           success: true,
-          message: 'VBA code converted to native macro successfully',
+          message: `VBA code converted and saved to ${outputPath}`,
           outputPath,
           macroName: args.macroName,
           linesOfCode: processedCode.split('\n').length,
-          referencesAdded: args.addReferences,
           initializationAdded: args.addInitialization
         };
       } catch (error) {
@@ -716,12 +642,3 @@ End Sub`
   return templates[args.template] || templates.basic;
 }
 
-// Helper function to get SolidWorks type library GUIDs
-function getSolidWorksTypeLibGuid(libName: string): string {
-  const guids: any = {
-    "SldWorks 2024 Type Library": "{83A33D31-27C5-11CE-BFD4-00400513BB57}",
-    "SldWorks 2024 Constant type library": "{4687F359-55D0-4CD3-B6CF-2EB42C11F989}",
-    "SldWorks 2024 Commands type library": "{0AC0837E-7365-48E8-9651-A141AAB75963}"
-  };
-  return guids[libName] || "";
-}

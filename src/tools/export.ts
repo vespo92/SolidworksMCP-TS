@@ -146,26 +146,34 @@ export const exportTools = [
           // Try using ViewZoomtofit first to ensure proper view
           model.ViewZoomtofit2();
           
-          // For other formats, try Extension.SaveAs with specific format
+          // For PNG/JPG, try Extension.SaveAs2 then fall back to BMP
           try {
             if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') {
-              // Use SaveAs2 with format flags
-              // 0x00000020 = swSaveAsOptions_SaveAsPNG
-              // 0x00000040 = swSaveAsOptions_SaveAsJPEG
               const formatFlag = ext === 'png' ? 0x20 : 0x40;
               success = model.Extension.SaveAs2(args.outputPath, 0, formatFlag, null, null, false, null);
+              // Verify the file was actually created in the requested format
+              if (!success || !existsSync(args.outputPath)) {
+                // SaveAs2 failed — fall back to BMP
+                const bmpPath = args.outputPath.replace(/\.[^.]+$/, '.bmp');
+                success = model.SaveBMP(bmpPath, args.width || 1920, args.height || 1080);
+                if (success) {
+                  return `Screenshot saved as BMP (${ext.toUpperCase()} format not supported by this SolidWorks version): ${bmpPath}`;
+                }
+              }
             } else {
-              // Fallback to SaveBMP and note format limitation
-              success = model.SaveBMP(args.outputPath, args.width || 1920, args.height || 1080);
-              if (success && ext !== 'bmp') {
-                return `Screenshot saved as BMP (format ${ext} not directly supported): ${args.outputPath}`;
+              // Unsupported extension — use BMP
+              const bmpPath = args.outputPath.replace(/\.[^.]+$/, '.bmp');
+              success = model.SaveBMP(bmpPath, args.width || 1920, args.height || 1080);
+              if (success) {
+                return `Screenshot saved as BMP (format ${ext} not directly supported): ${bmpPath}`;
               }
             }
           } catch (e) {
-            // Final fallback to SaveBMP
-            success = model.SaveBMP(args.outputPath.replace(/\.[^.]+$/, '.bmp'), args.width || 1920, args.height || 1080);
+            // Final fallback to BMP
+            const bmpPath = args.outputPath.replace(/\.[^.]+$/, '.bmp');
+            success = model.SaveBMP(bmpPath, args.width || 1920, args.height || 1080);
             if (success) {
-              return `Screenshot saved as BMP (other formats failed): ${args.outputPath.replace(/\.[^.]+$/, '.bmp')}`;
+              return `Screenshot saved as BMP (${ext.toUpperCase()} export failed): ${bmpPath}`;
             }
           }
         }

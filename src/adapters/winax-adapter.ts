@@ -10,10 +10,10 @@
 
 // @ts-ignore
 import winax from 'winax';
-import { 
-  ISolidWorksAdapter, 
-  Command, 
-  AdapterResult, 
+import {
+  ISolidWorksAdapter,
+  Command,
+  AdapterResult,
   AdapterHealth,
   ExtrusionParameters,
   RevolveParameters,
@@ -24,6 +24,7 @@ import {
 } from './types.js';
 import { SolidWorksModel, SolidWorksFeature } from '../solidworks/types.js';
 import { logger } from '../utils/logger.js';
+import { comNothing } from '../utils/com-helpers.js';
 import { MacroGenerator } from './macro-generator.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -534,7 +535,7 @@ export class WinAxAdapter implements ISolidWorksAdapter {
     
     for (const name of sketchNames) {
       try {
-        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
+        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, comNothing(), 0);
         if (selected) {
           logger.info(`Selected sketch: ${name}`);
           return true;
@@ -635,7 +636,7 @@ export class WinAxAdapter implements ISolidWorksAdapter {
     const ext = this.currentModel.Extension;
     
     // Select the plane
-    const selected = ext.SelectByID2(plane, 'PLANE', 0, 0, 0, false, 0, null, 0);
+    const selected = ext.SelectByID2(plane, 'PLANE', 0, 0, 0, false, 0, comNothing(), 0);
     if (!selected) {
       throw new Error(`Failed to select plane: ${plane}`);
     }
