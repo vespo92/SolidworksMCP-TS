@@ -2,6 +2,7 @@
 import winax from 'winax';
 import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
+import { comNothing } from '../utils/com-helpers.js';
 
 export class SolidWorksAPI {
   private swApp: any;
@@ -246,7 +247,7 @@ export class SolidWorksAPI {
         try {
           const ext = this.currentModel.Extension;
           if (ext) {
-            const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
+            const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, comNothing(), 0);
             if (selected) {
               sketchSelected = true;
               selectedSketchName = name;
@@ -451,7 +452,7 @@ export class SolidWorksAPI {
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, null, 0);
+        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, comNothing(), 0);
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {
@@ -526,7 +527,7 @@ export class SolidWorksAPI {
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, null, 0);
+        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, comNothing(), 0);
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {

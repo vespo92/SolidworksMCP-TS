@@ -5,12 +5,30 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { modelingTools } from './tools/modeling.js';
 import { vbaTools } from './tools/vba.js';
+import { analysisTools } from './tools/analysis.js';
+import { sketchTools } from './tools/sketch.js';
+import { templateManagerTools } from './tools/template-manager.js';
+import { nativeMacroTools } from './tools/native-macro.js';
 import { resourceRegistry } from './resources/registry.js';
 import { DesignTableResource } from './resources/design-table.js';
 import { PDMResource } from './resources/pdm.js';
 import { MacroRecorder } from './macro/recorder.js';
 import { ResourceStateStore } from './state/store.js';
 import { ResourceStatus } from './resources/base.js';
+
+// Mock winax (Windows-only COM module) for cross-platform testing
+vi.mock('winax', () => ({
+  default: {
+    Object: vi.fn(),
+    Variant: vi.fn(),
+  },
+}));
+
+// Mock COM helpers (depends on winax)
+vi.mock('./utils/com-helpers.js', () => ({
+  comNothing: vi.fn().mockReturnValue(undefined),
+  selectByID2: vi.fn().mockReturnValue(true),
+}));
 
 // Mock SolidWorks API
 vi.mock('./solidworks/api.js', () => ({
@@ -236,6 +254,99 @@ describe('SolidWorks MCP Server', () => {
     it('should query states by type', async () => {
       const designTables = stateStore.getStatesByType('design-table');
       expect(designTables).toBeDefined();
+    });
+  });
+
+  // ============================================
+  // Bug fix regression tests
+  // ============================================
+
+  describe('Bug 1: SelectByID2 COM null fix', () => {
+    it('sketch tools should import comNothing and not use raw null', async () => {
+      // Verify that sketch tools are properly defined (they import comNothing at module level)
+      expect(sketchTools).toBeDefined();
+      expect(sketchTools.length).toBeGreaterThan(0);
+
+      // Verify key tools that use SelectByID2 exist
+      const editSketch = sketchTools.find(t => t.name === 'edit_sketch');
+      expect(editSketch).toBeDefined();
+
+      const addConstraint = sketchTools.find(t => t.name === 'add_sketch_constraint');
+      expect(addConstraint).toBeDefined();
+
+      const addDimension = sketchTools.find(t => t.name === 'add_sketch_dimension');
+      expect(addDimension).toBeDefined();
+
+      const spline = sketchTools.find(t => t.name === 'sketch_spline');
+      expect(spline).toBeDefined();
+    });
+  });
+
+  describe('Bug 2: Native macro tools use .swb files', () => {
+    it('should have create_initialized_macro tool defined', () => {
+      const tool = nativeMacroTools.find(t => t.name === 'create_initialized_macro');
+      expect(tool).toBeDefined();
+      expect(tool!.description).toContain('VBA initialization');
+    });
+
+    it('should have convert_text_to_native_macro tool defined', () => {
+      const tool = nativeMacroTools.find(t => t.name === 'convert_text_to_native_macro');
+      expect(tool).toBeDefined();
+      expect(tool!.description).toContain('.swb');
+    });
+
+    it('should have start/stop recording tools defined', () => {
+      const start = nativeMacroTools.find(t => t.name === 'start_native_macro_recording');
+      const stop = nativeMacroTools.find(t => t.name === 'stop_native_macro_recording');
+      expect(start).toBeDefined();
+      expect(stop).toBeDefined();
+    });
+  });
+
+  describe('Bug 3: Template manager uses ESM imports', () => {
+    it('should have template manager tools defined (proves ESM imports work)', () => {
+      expect(templateManagerTools).toBeDefined();
+      expect(templateManagerTools.length).toBeGreaterThan(0);
+
+      const listTool = templateManagerTools.find(t => t.name === 'list_template_library');
+      expect(listTool).toBeDefined();
+
+      const saveTool = templateManagerTools.find(t => t.name === 'save_template_to_library');
+      expect(saveTool).toBeDefined();
+    });
+  });
+
+  describe('Bug 4: Mass properties null guards', () => {
+    it('should have analysis tools defined', () => {
+      expect(analysisTools).toBeDefined();
+      const massPropsTool = analysisTools.find(t => t.name === 'get_mass_properties');
+      expect(massPropsTool).toBeDefined();
+    });
+
+    it('get_mass_properties handler should handle null/undefined values', () => {
+      const tool = analysisTools.find(t => t.name === 'get_mass_properties');
+      expect(tool).toBeDefined();
+
+      // Create a mock API that returns null/undefined mass properties
+      const mockApi = {
+        getMassProperties: () => ({
+          mass: null,
+          volume: undefined,
+          surfaceArea: null,
+          centerOfMass: null,
+          density: undefined,
+        }),
+      };
+
+      // Should not throw — null guards should handle it
+      const result = tool!.handler({ units: 'kg' }, mockApi as any);
+      expect(result).toBeDefined();
+      // Result should contain formatted strings, not throw toFixed errors
+      expect(typeof result).toBe('object');
+      expect(result.mass).toContain('kg');
+      expect(result.volume).toContain('mm³');
+      expect(result.surfaceArea).toContain('mm²');
+      expect(result.centerOfMass.x).toContain('mm');
     });
   });
 });

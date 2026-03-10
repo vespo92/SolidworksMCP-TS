@@ -8,6 +8,7 @@
 import winax from 'winax';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { comNothing } from '../utils/com-helpers.js';
 import { 
   ISolidWorksAdapter,
   Command,
@@ -395,7 +396,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     
     for (const name of sketchNames) {
       try {
-        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
+        const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, comNothing(), 0);
         if (selected) {
           logger.info(`Selected sketch: ${name}`);
           return true;
@@ -563,7 +564,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     if (!this.currentModel) throw new Error('No active model');
     
     const ext = this.currentModel.Extension;
-    ext.SelectByID2(plane + ' Plane', 'PLANE', 0, 0, 0, false, 0, null, 0);
+    ext.SelectByID2(plane + ' Plane', 'PLANE', 0, 0, 0, false, 0, comNothing(), 0);
     this.currentModel.SketchManager.InsertSketch(true);
     
     return this.currentModel.SketchManager.ActiveSketch.Name;

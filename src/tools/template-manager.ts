@@ -4,6 +4,8 @@
  */
 
 import { z } from 'zod';
+import * as fs from 'fs';
+import * as path from 'path';
 import { SolidWorksAPI } from '../solidworks/api.js';
 
 /**
@@ -134,7 +136,6 @@ export const templateManagerTools = [
         
         // Save template configuration if requested
         if (args.saveAs) {
-          const fs = require('fs');
           fs.writeFileSync(args.saveAs, JSON.stringify(templateData, null, 2));
         }
         
@@ -172,7 +173,6 @@ export const templateManagerTools = [
         // Load template data
         let templateData = args.templateData;
         if (!templateData && args.templateFile) {
-          const fs = require('fs');
           templateData = JSON.parse(fs.readFileSync(args.templateFile, 'utf8'));
         }
         
@@ -334,8 +334,6 @@ export const templateManagerTools = [
         
         // Add files from folder if pattern matching requested
         if (args.includeSubfolders && args.filePattern) {
-          const fs = require('fs');
-          const path = require('path');
           const parentDir = path.dirname(args.parentFile);
           
           const findFiles = (dir: string, pattern: string): string[] => {
@@ -418,7 +416,6 @@ export const templateManagerTools = [
         
         // Save report if requested
         if (args.saveReport) {
-          const fs = require('fs');
           fs.writeFileSync(args.saveReport, JSON.stringify(report, null, 2));
         }
         
@@ -579,9 +576,6 @@ export const templateManagerTools = [
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
-        const fs = require('fs');
-        const path = require('path');
-        
         // Ensure library directory exists
         if (!fs.existsSync(args.libraryPath)) {
           fs.mkdirSync(args.libraryPath, { recursive: true });
@@ -657,9 +651,6 @@ export const templateManagerTools = [
     }),
     handler: (args: any) => {
       try {
-        const fs = require('fs');
-        const path = require('path');
-        
         const indexPath = path.join(args.libraryPath, 'index.json');
         if (!fs.existsSync(indexPath)) {
           return {

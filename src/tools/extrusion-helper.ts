@@ -1,6 +1,7 @@
 // Alternative approach: Create a helper module that uses simpler API calls
 import { z } from 'zod';
 import { SolidWorksAPI } from '../solidworks/api.js';
+import { comNothing } from '../utils/com-helpers.js';
 
 export const extrusionHelper = {
   name: 'simple_extrude',
@@ -27,7 +28,7 @@ export const extrusionHelper = {
       
       for (const name of sketchNames) {
         try {
-          if (ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 4, null, 0)) {
+          if (ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 4, comNothing(), 0)) {
             sketchFound = true;
             break;
           }
