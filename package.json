@@ -8,7 +8,7 @@
     "solidworks-mcp-server": "./dist/index.js"
   },
   "scripts": {
-    "build": "node --max-old-space-size=8192 ./node_modules/.bin/tsc",
+    "build": "node --max-old-space-size=8192 node_modules/typescript/lib/tsc.js",
     "build:refactored": "tsc --project tsconfig.refactored.json",
     "dev": "tsx watch src/index.ts",
     "dev:refactored": "tsx watch src/index.refactored.ts",
