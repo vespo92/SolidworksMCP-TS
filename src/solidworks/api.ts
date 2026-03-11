@@ -149,7 +149,7 @@ export class SolidWorksAPI {
     
     return {
       path: '',
-      name: this.currentModel.GetTitle,
+      name: this.currentModel.GetTitle(),
       type: 'Part',
       isActive: true,
     };
