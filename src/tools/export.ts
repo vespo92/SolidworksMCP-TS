@@ -153,7 +153,7 @@ export const exportTools = [
               // 0x00000020 = swSaveAsOptions_SaveAsPNG
               // 0x00000040 = swSaveAsOptions_SaveAsJPEG
               const formatFlag = ext === 'png' ? 0x20 : 0x40;
-              success = model.Extension.SaveAs2(args.outputPath, 0, formatFlag, null, null, false, null);
+              success = model.Extension.SaveAs2(args.outputPath, 0, formatFlag, undefined, undefined, false, undefined);
             } else {
               // Fallback to SaveBMP and note format limitation
               success = model.SaveBMP(args.outputPath, args.width || 1920, args.height || 1080);

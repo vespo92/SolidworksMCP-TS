@@ -1,7 +1,7 @@
 {
   "name": "solidworks-mcp-server",
-  "version": "3.0.9",
-  "description": "Clean Architecture SolidWorks MCP Server - Production-ready with SOLID principles",
+  "version": "3.1.0",
+  "description": "SolidWorks MCP Server - AI-driven CAD automation with intelligent COM/VBA routing",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -9,12 +9,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:refactored": "tsc --project tsconfig.refactored.json",
     "dev": "tsx watch src/index.ts",
-    "dev:refactored": "tsx watch src/index.refactored.ts",
     "start": "node dist/index.js",
-    "start:refactored": "node dist/index.refactored.js",
-    "migrate": "tsx Fixes-V2/migrate.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -57,9 +53,8 @@
     "cad",
     "automation",
     "vba",
-    "clean-architecture",
-    "solid-principles",
-    "production-ready"
+    "com-interop",
+    "windows"
   ],
   "author": "SolidWorks MCP Contributors",
   "license": "MIT",

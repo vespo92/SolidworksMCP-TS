@@ -240,50 +240,51 @@ export class SolidWorksAPI {
       let selectedSketchName = '';
       const attemptedSketches: string[] = [];
 
-      // Method 1: Try to select by name
-      const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
-      for (const name of sketchNames) {
-        try {
-          const ext = this.currentModel.Extension;
-          if (ext) {
-            const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, null, 0);
-            if (selected) {
+      // Method 1 (most reliable): Feature tree traversal
+      // This avoids SelectByID2 COM type mismatch issues entirely
+      try {
+        const featureCount = this.currentModel.GetFeatureCount();
+        logger.info(`Searching ${featureCount} features for sketch...`);
+
+        for (let i = 0; i < Math.min(10, featureCount); i++) {
+          const feat = this.currentModel.FeatureByPositionReverse(i);
+          if (feat) {
+            const typeName = feat.GetTypeName2();
+            const featName = feat.Name || feat.GetName();
+
+            if (typeName === 'ProfileFeature' || (typeName && typeName.toLowerCase().includes('sketch'))) {
+              feat.Select2(false, 0);
               sketchSelected = true;
-              selectedSketchName = name;
-              logger.info(`Selected sketch: ${name}`);
+              selectedSketchName = featName || `Feature at position ${i}`;
+              logger.info(`Selected sketch by feature tree: ${selectedSketchName}`);
               break;
-            } else {
-              attemptedSketches.push(name);
             }
           }
-        } catch (e) {
-          attemptedSketches.push(`${name} (error: ${e})`);
         }
+      } catch (e) {
+        logger.warn(`Feature tree search failed: ${e}`);
       }
 
-      // Method 2: Try to select the last feature if it's a sketch
+      // Method 2 (fallback): SelectByID2 with undefined for optional params
       if (!sketchSelected) {
-        try {
-          const featureCount = this.currentModel.GetFeatureCount();
-          logger.info(`Searching ${featureCount} features for sketch...`);
-
-          for (let i = 0; i < Math.min(10, featureCount); i++) {
-            const feat = this.currentModel.FeatureByPositionReverse(i);
-            if (feat) {
-              const typeName = feat.GetTypeName2();
-              const featName = feat.Name || feat.GetName();
-
-              if (typeName && typeName.toLowerCase().includes('sketch')) {
-                feat.Select2(false, 0);
+        const sketchNames = ['Sketch1', 'Sketch2', 'Sketch3', 'Sketch4', 'Sketch5'];
+        for (const name of sketchNames) {
+          try {
+            const ext = this.currentModel.Extension;
+            if (ext) {
+              const selected = ext.SelectByID2(name, 'SKETCH', 0, 0, 0, false, 0, undefined, 0);
+              if (selected) {
                 sketchSelected = true;
-                selectedSketchName = featName || `Feature at position ${i}`;
-                logger.info(`Selected sketch by position: ${selectedSketchName}`);
+                selectedSketchName = name;
+                logger.info(`Selected sketch via SelectByID2: ${name}`);
                 break;
+              } else {
+                attemptedSketches.push(name);
               }
             }
+          } catch (e) {
+            attemptedSketches.push(`${name} (error: ${e})`);
           }
-        } catch (e) {
-          logger.warn(`Feature search failed: ${e}`);
         }
       }
 
@@ -451,7 +452,7 @@ export class SolidWorksAPI {
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, null, 0);
+        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, undefined, 0);
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {
@@ -526,7 +527,7 @@ export class SolidWorksAPI {
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, null, 0);
+        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, undefined, 0);
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {
@@ -625,7 +626,7 @@ export class SolidWorksAPI {
             success = this.currentModel.SaveAs3(filePath, 0, 2);
             if (!success) {
               // Method 2: Try Extension.SaveAs with swSaveAsCurrentVersion flag
-              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, null, errors, warnings);
+              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, undefined, errors, warnings);
             }
           } catch (e) {
             // Method 3: Try GetExportFileData approach
@@ -648,7 +649,7 @@ export class SolidWorksAPI {
             success = this.currentModel.SaveAs3(filePath, 0, 2);
             if (!success) {
               // Method 2: Try Extension.SaveAs
-              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, null, errors, warnings);
+              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, undefined, errors, warnings);
             }
           } catch (e) {
             throw new Error(`Failed to export to IGES: ${e}`);
@@ -666,7 +667,7 @@ export class SolidWorksAPI {
                 success = this.currentModel.SaveAs4(filePath, 0, 2, errors, warnings);
               } catch (e2) {
                 // Method 3: Try Extension.SaveAs
-                success = this.currentModel.Extension.SaveAs(filePath, 0, 2, null, errors, warnings);
+                success = this.currentModel.Extension.SaveAs(filePath, 0, 2, undefined, errors, warnings);
               }
             }
           } catch (e) {
@@ -683,7 +684,7 @@ export class SolidWorksAPI {
           try {
             success = this.currentModel.SaveAs3(filePath, 0, 2);
             if (!success) {
-              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, null, errors, warnings);
+              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, undefined, errors, warnings);
             }
           } catch (e) {
             throw new Error(`Failed to export to PDF: ${e}`);
@@ -696,7 +697,7 @@ export class SolidWorksAPI {
           try {
             success = this.currentModel.SaveAs3(filePath, 0, 2);
             if (!success) {
-              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, null, errors, warnings);
+              success = this.currentModel.Extension.SaveAs(filePath, 0, 2, undefined, errors, warnings);
             }
           } catch (e) {
             throw new Error(`Failed to export to ${format.toUpperCase()}: ${e}`);
