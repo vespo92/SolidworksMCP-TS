@@ -176,7 +176,6 @@ class SolidWorksMCPServer {
     // Combine all tools including enhanced refactored versions
     const allTools = [
       ...modelingTools,
-      // ...modelingToolsRefactored, // TODO: Import when ready
       ...drawingTools,
       ...sketchTools,
       ...exportTools,

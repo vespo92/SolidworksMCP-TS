@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-03-11
+
+### Fixed
+- **Critical: SelectByID2 Type Mismatch** (Issue #8) - Replace `null` with `undefined` for COM optional parameters across all `SelectByID2` and `SaveAs` calls. COM interprets `null` as VT_NULL which causes DispInvoke type mismatch errors.
+- **Sketch Selection Strategy** - Prioritize feature tree traversal (`FeatureByPositionReverse` + `GetTypeName2`) over `SelectByID2` for sketch selection. This approach is more reliable and avoids COM selection issues entirely.
+- **Mass Properties Null Safety** - Add null coalescing guards in analysis tools to prevent `TypeError` when calling `.toFixed()` on sketch-only documents that return null for numeric properties.
+
+### Removed
+- Dead refactored modules (`index.refactored.ts`, `modeling-refactored.ts`, `api-refactored.ts`, `tsconfig.refactored.json`) that were never integrated
+- Incomplete clean architecture directories (`src/application/`, `src/commands/`, `src/infrastructure/`) that added complexity without being wired into the server
+- Duplicate `.eslintrc.json` (project uses `eslint.config.js` flat config)
+- Unused package.json scripts (`build:refactored`, `dev:refactored`, `start:refactored`, `migrate`)
+
+### Added
+- `CLAUDE.md` project guide for AI contributors
+
+### Changed
+- Moved 7 analysis/architecture docs from repo root to `docs/` directory
+- Updated package.json description and keywords to reflect actual architecture
+
 ## [3.0.9] - 2025-09-10
 
 ### Fixed

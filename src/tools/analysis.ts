@@ -12,19 +12,25 @@ export const analysisTools = [
       try {
         const props = swApi.getMassProperties();
         
-        // Convert mass based on units
-        let mass = props.mass;
+        // Convert mass based on units, guard against null from sketch-only docs
+        let mass = props.mass ?? 0;
         if (args.units === 'g') mass *= 1000;
         if (args.units === 'lb') mass *= 2.20462;
-        
+
+        const volume = props.volume ?? 0;
+        const surfaceArea = props.surfaceArea ?? 0;
+        const comX = props.centerOfMass?.x ?? 0;
+        const comY = props.centerOfMass?.y ?? 0;
+        const comZ = props.centerOfMass?.z ?? 0;
+
         return {
           mass: `${mass.toFixed(3)} ${args.units}`,
-          volume: `${(props.volume * 1e9).toFixed(3)} mm³`,
-          surfaceArea: `${(props.surfaceArea * 1e6).toFixed(3)} mm²`,
+          volume: `${(volume * 1e9).toFixed(3)} mm³`,
+          surfaceArea: `${(surfaceArea * 1e6).toFixed(3)} mm²`,
           centerOfMass: {
-            x: `${(props.centerOfMass.x * 1000).toFixed(3)} mm`,
-            y: `${(props.centerOfMass.y * 1000).toFixed(3)} mm`,
-            z: `${(props.centerOfMass.z * 1000).toFixed(3)} mm`,
+            x: `${(comX * 1000).toFixed(3)} mm`,
+            y: `${(comY * 1000).toFixed(3)} mm`,
+            z: `${(comZ * 1000).toFixed(3)} mm`,
           },
         };
       } catch (error) {
