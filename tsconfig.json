@@ -23,11 +23,6 @@
     "dist",
     "src/**/*.test.ts",
     "src/**/*.spec.ts",
-    "eslint.config.js",
-    "src/index.refactored.ts",
-    "src/application/**/*",
-    "src/presentation/**/*",
-    "src/infrastructure/**/*",
     "src/tools/drawing-analysis.ts",
     "src/tools/feature-testing-tools.ts"
   ]

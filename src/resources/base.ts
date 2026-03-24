@@ -48,7 +48,7 @@ export enum ResourceStatus {
   FAILED = 'failed',
   EXECUTING = 'executing',
   COMPLETED = 'completed',
-  UNKNOWN = 'unknown'
+  UNKNOWN = 'unknown',
 }
 
 export interface ResourceDependency {
@@ -79,7 +79,7 @@ export abstract class SolidWorksResource {
       createdBy: 'solidworks-mcp',
       version: 1,
       tags: {},
-      annotations: {}
+      annotations: {},
     };
   }
 
@@ -94,15 +94,15 @@ export abstract class SolidWorksResource {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors.map(e => ({
+          errors: error.errors.map((e) => ({
             path: e.path.join('.'),
-            message: e.message
-          }))
+            message: e.message,
+          })),
         };
       }
       return {
         valid: false,
-        errors: [{ path: '', message: 'Unknown validation error' }]
+        errors: [{ path: '', message: 'Unknown validation error' }],
       };
     }
   }
@@ -118,7 +118,7 @@ export abstract class SolidWorksResource {
       properties: this._properties,
       outputs: this._outputs,
       metadata: this._metadata,
-      status: this._status
+      status: this._status,
     };
   }
 
@@ -188,7 +188,7 @@ export abstract class SolidWorksResource {
    */
   updateProperties(properties: Partial<Record<string, any>>): ValidationResult {
     const newProperties = { ...this._properties, ...properties };
-    
+
     // Validate before updating
     try {
       this.schema.parse(newProperties);
@@ -200,15 +200,15 @@ export abstract class SolidWorksResource {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors.map(e => ({
+          errors: error.errors.map((e) => ({
             path: e.path.join('.'),
-            message: e.message
-          }))
+            message: e.message,
+          })),
         };
       }
       return {
         valid: false,
-        errors: [{ path: '', message: 'Unknown validation error' }]
+        errors: [{ path: '', message: 'Unknown validation error' }],
       };
     }
   }

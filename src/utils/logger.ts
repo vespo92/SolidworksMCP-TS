@@ -4,20 +4,20 @@
 
 import winston from 'winston';
 
-const { combine, timestamp, printf, colorize, errors } = winston.format;
+const { combine, timestamp, printf, errors } = winston.format;
 
 // Custom format for console output
-const consoleFormat = printf(({ level, message, timestamp: ts, stack, ...metadata }) => {
+const _consoleFormat = printf(({ level, message, timestamp: ts, stack, ...metadata }) => {
   let msg = `${ts} [${level}]: ${message}`;
-  
+
   if (Object.keys(metadata).length > 0) {
     msg += ` ${JSON.stringify(metadata)}`;
   }
-  
+
   if (stack) {
     msg += `\n${stack}`;
   }
-  
+
   return msg;
 });
 
@@ -25,34 +25,27 @@ const consoleFormat = printf(({ level, message, timestamp: ts, stack, ...metadat
 // For MCP servers, we must NOT log to stdout/console as it interferes with JSON-RPC
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
-  format: combine(
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    errors({ stack: true })
-  ),
+  format: combine(timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), errors({ stack: true })),
   transports: [
     // File transport only - NO console output for MCP compatibility
     new winston.transports.File({
       filename: process.env.MCP_LOG_FILE || 'solidworks-mcp.log',
-      format: combine(
-        timestamp(),
-        winston.format.json()
-      ),
+      format: combine(timestamp(), winston.format.json()),
       handleExceptions: true,
-      handleRejections: true
-    })
-  ]
+      handleRejections: true,
+    }),
+  ],
 });
 
 // Add error-only file in production
 if (process.env.NODE_ENV === 'production') {
-  logger.add(new winston.transports.File({
-    filename: 'solidworks-mcp-error.log',
-    level: 'error',
-    format: combine(
-      timestamp(),
-      winston.format.json()
-    )
-  }));
+  logger.add(
+    new winston.transports.File({
+      filename: 'solidworks-mcp-error.log',
+      level: 'error',
+      format: combine(timestamp(), winston.format.json()),
+    })
+  );
 }
 
 // Logger helper functions
@@ -79,7 +72,7 @@ export function logDebug(message: string, metadata?: any): void {
 // Log operation execution
 export function logOperation(operation: string, status: 'started' | 'completed' | 'failed', metadata?: any): void {
   const message = `Operation ${operation} ${status}`;
-  
+
   switch (status) {
     case 'started':
       logDebug(message, metadata);

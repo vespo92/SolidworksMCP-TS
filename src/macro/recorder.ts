@@ -3,8 +3,8 @@
  * Records and manages macro operations
  */
 
-import { MacroAction, MacroRecording, MacroExecution, MacroLog } from './types.js';
 import { v4 as uuidv4 } from 'uuid';
+import type { MacroAction, MacroExecution, MacroLog, MacroRecording } from './types.js';
 
 export class MacroRecorder {
   private currentRecording: MacroRecording | null = null;
@@ -30,8 +30,8 @@ export class MacroRecorder {
       metadata: {
         createdBy: 'solidworks-mcp',
         version: '1.0.0',
-        tags: []
-      }
+        tags: [],
+      },
     };
 
     return id;
@@ -66,7 +66,7 @@ export class MacroRecorder {
       type,
       name,
       timestamp: new Date().toISOString(),
-      parameters
+      parameters,
     };
 
     this.currentRecording.actions.push(action);
@@ -115,7 +115,7 @@ export class MacroRecorder {
       macroId,
       startTime: new Date().toISOString(),
       status: 'running',
-      logs: []
+      logs: [],
     };
 
     this.executions.set(executionId, execution);
@@ -129,11 +129,11 @@ export class MacroRecorder {
         }
 
         this.addLog(execution, 'info', `Executing action: ${action.name}`);
-        
+
         try {
           const result = await handler({
             ...action,
-            parameters: { ...action.parameters, ...parameters }
+            parameters: { ...action.parameters, ...parameters },
           });
           results.push(result);
           this.addLog(execution, 'debug', `Action completed: ${action.name}`, result);
@@ -167,7 +167,7 @@ export class MacroRecorder {
    * Get all executions for a macro
    */
   getMacroExecutions(macroId: string): MacroExecution[] {
-    return Array.from(this.executions.values()).filter(e => e.macroId === macroId);
+    return Array.from(this.executions.values()).filter((e) => e.macroId === macroId);
   }
 
   /**
@@ -178,7 +178,7 @@ export class MacroRecorder {
       timestamp: new Date().toISOString(),
       level,
       message,
-      data
+      data,
     });
   }
 
@@ -208,7 +208,7 @@ export class MacroRecorder {
       '        MsgBox "No active document found"',
       '        Exit Sub',
       '    End If',
-      '    '
+      '    ',
     ];
 
     // Convert actions to VBA code
@@ -216,7 +216,7 @@ export class MacroRecorder {
       const vbaCode = this.actionToVBA(action);
       if (vbaCode) {
         vbaLines.push(`    ' ${action.name}`);
-        vbaLines.push(...vbaCode.split('\n').map(line => `    ${line}`));
+        vbaLines.push(...vbaCode.split('\n').map((line) => `    ${line}`));
         vbaLines.push('');
       }
     }
@@ -233,9 +233,12 @@ export class MacroRecorder {
     // This would be expanded with specific action type conversions
     const vbaGenerators: Record<string, (params: any) => string> = {
       'create-sketch': (params) => `swModel.CreateSketch "${params.plane}"`,
-      'add-line': (params) => `swModel.CreateLine2 ${params.x1}, ${params.y1}, ${params.z1}, ${params.x2}, ${params.y2}, ${params.z2}`,
-      'add-circle': (params) => `swModel.CreateCircle2 ${params.centerX}, ${params.centerY}, ${params.centerZ}, ${params.radius}`,
-      'extrude': (params) => `swModel.FeatureManager.FeatureExtrusion3 True, False, False, 0, 0, ${params.depth}, 0, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False`,
+      'add-line': (params) =>
+        `swModel.CreateLine2 ${params.x1}, ${params.y1}, ${params.z1}, ${params.x2}, ${params.y2}, ${params.z2}`,
+      'add-circle': (params) =>
+        `swModel.CreateCircle2 ${params.centerX}, ${params.centerY}, ${params.centerZ}, ${params.radius}`,
+      extrude: (params) =>
+        `swModel.FeatureManager.FeatureExtrusion3 True, False, False, 0, 0, ${params.depth}, 0, False, False, False, False, 0, 0, False, False, False, False, True, True, True, 0, 0, False`,
       // Add more action types as needed
     };
 

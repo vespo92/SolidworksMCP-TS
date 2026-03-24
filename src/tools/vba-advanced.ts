@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { SolidWorksAPI } from '../solidworks/api.js';
 
 /**
  * VBA Generation for Advanced SolidWorks Features
@@ -17,7 +16,7 @@ export const advancedVBATools = [
       features: z.array(z.string()).optional(),
       properties: z.record(z.any()).optional(),
       suppressStates: z.record(z.boolean()).optional(),
-      displayStates: z.array(z.string()).optional()
+      displayStates: z.array(z.string()).optional(),
     }),
     handler: (args: any) => {
       return `
@@ -39,7 +38,9 @@ Sub ManageConfiguration_${args.operation}()
     
     Set swConfigMgr = swModel.ConfigurationManager
     
-    ${args.operation === 'create' ? `
+    ${
+      args.operation === 'create'
+        ? `
     ' Create new configuration
     Set swConfig = swModel.AddConfiguration3( _
         "${args.configName}", _
@@ -53,31 +54,53 @@ Sub ManageConfiguration_${args.operation}()
         ' Activate configuration
         swModel.ShowConfiguration2 "${args.configName}"
         
-        ${args.features && args.features.length > 0 ? `
+        ${
+          args.features && args.features.length > 0
+            ? `
         ' Suppress/Unsuppress features
-        ${args.features.map((feat: string) => `
+        ${args.features
+          .map(
+            (feat: string) => `
         Set swFeature = swModel.FeatureByName("${feat}")
         If Not swFeature Is Nothing Then
             swFeature.SetSuppression2 _
-                ${args.suppressStates && args.suppressStates[feat] ? 
-                  'swFeatureSuppressionAction_e.swSuppressFeature' : 
-                  'swFeatureSuppressionAction_e.swUnSuppressFeature'}, _
+                ${
+                  args.suppressStates?.[feat]
+                    ? 'swFeatureSuppressionAction_e.swSuppressFeature'
+                    : 'swFeatureSuppressionAction_e.swUnSuppressFeature'
+                }, _
                 swInConfigurationOpts_e.swThisConfiguration, Nothing
-        End If`).join('\n        ')}` : ''}
+        End If`
+          )
+          .join('\n        ')}`
+            : ''
+        }
         
-        ${args.properties ? `
+        ${
+          args.properties
+            ? `
         ' Set configuration properties
         Dim swCustPropMgr As SldWorks.CustomPropertyManager
         Set swCustPropMgr = swConfig.CustomPropertyManager
         
-        ${Object.entries(args.properties).map(([key, value]) => `
+        ${Object.entries(args.properties)
+          .map(
+            ([key, value]) => `
         swCustPropMgr.Add3 "${key}", swCustomInfoType_e.swCustomInfoText, _
-            "${value}", swCustomPropertyAddOption_e.swCustomPropertyReplaceValue`).join('\n        ')}` : ''}
+            "${value}", swCustomPropertyAddOption_e.swCustomPropertyReplaceValue`
+          )
+          .join('\n        ')}`
+            : ''
+        }
         
         MsgBox "Configuration '${args.configName}' created"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'derive' ? `
+    ${
+      args.operation === 'derive'
+        ? `
     ' Create derived configuration
     Dim parentConfig As SldWorks.Configuration
     Set parentConfig = swModel.GetConfigurationByName("${args.parentConfig || 'Default'}")
@@ -93,26 +116,40 @@ Sub ManageConfiguration_${args.operation}()
             swModel.ShowConfiguration2 "${args.configName}"
             MsgBox "Derived configuration created: ${args.configName}"
         End If
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'suppress_features' ? `
+    ${
+      args.operation === 'suppress_features'
+        ? `
     ' Suppress features in configuration
     swModel.ShowConfiguration2 "${args.configName}"
     
-    ${args.features ? args.features.map((feat: string) => `
+    ${
+      args.features
+        ? args.features
+            .map(
+              (feat: string) => `
     Set swFeature = swModel.FeatureByName("${feat}")
     If Not swFeature Is Nothing Then
         swFeature.SetSuppression2 _
             swFeatureSuppressionAction_e.swSuppressFeature, _
             swInConfigurationOpts_e.swThisConfiguration, Nothing
         Debug.Print "Suppressed: ${feat}"
-    End If`).join('\n    ') : ''}
+    End If`
+            )
+            .join('\n    ')
+        : ''
+    }
     
-    MsgBox "Features suppressed in configuration"` : ''}
+    MsgBox "Features suppressed in configuration"`
+        : ''
+    }
     
     swModel.EditRebuild3
 End Sub`;
-    }
+    },
   },
 
   {
@@ -120,14 +157,18 @@ End Sub`;
     description: 'Generate VBA for managing equations and global variables',
     inputSchema: z.object({
       operation: z.enum(['add', 'modify', 'delete', 'link', 'export']),
-      equations: z.array(z.object({
-        name: z.string(),
-        value: z.string(),
-        isGlobal: z.boolean().optional(),
-        comment: z.string().optional()
-      })).optional(),
+      equations: z
+        .array(
+          z.object({
+            name: z.string(),
+            value: z.string(),
+            isGlobal: z.boolean().optional(),
+            comment: z.string().optional(),
+          })
+        )
+        .optional(),
       externalFile: z.string().optional(),
-      linkExternal: z.boolean().optional()
+      linkExternal: z.boolean().optional(),
     }),
     handler: (args: any) => {
       return `
@@ -149,9 +190,15 @@ Sub ManageEquations_${args.operation}()
     
     Set swEquationMgr = swModel.GetEquationMgr
     
-    ${args.operation === 'add' ? `
+    ${
+      args.operation === 'add'
+        ? `
     ' Add equations
-    ${args.equations ? args.equations.map((eq: any, i: number) => `
+    ${
+      args.equations
+        ? args.equations
+            .map(
+              (eq: any, _i: number) => `
     ' Add equation: ${eq.name}
     equationIndex = swEquationMgr.Add2( _
         -1, _
@@ -161,11 +208,19 @@ Sub ManageEquations_${args.operation}()
     If equationIndex >= 0 Then
         Debug.Print "Added equation: ${eq.name} = ${eq.value}"
         ${eq.comment ? `swEquationMgr.SetEquationComment equationIndex, "${eq.comment}"` : ''}
-    End If`).join('\n    ') : ''}
+    End If`
+            )
+            .join('\n    ')
+        : ''
+    }
     
-    MsgBox "Equations added successfully"` : ''}
+    MsgBox "Equations added successfully"`
+        : ''
+    }
     
-    ${args.operation === 'modify' ? `
+    ${
+      args.operation === 'modify'
+        ? `
     ' Modify existing equations
     Dim equationCount As Integer
     equationCount = swEquationMgr.GetCount
@@ -174,28 +229,52 @@ Sub ManageEquations_${args.operation}()
         Dim currentEq As String
         currentEq = swEquationMgr.Equation(i)
         
-        ${args.equations ? args.equations.map((eq: any) => `
+        ${
+          args.equations
+            ? args.equations
+                .map(
+                  (eq: any) => `
         If InStr(currentEq, "\\"${eq.name}\\"") > 0 Then
             swEquationMgr.Equation(i) = "\\"${eq.name}\\" = ${eq.value}"
             Debug.Print "Modified equation: ${eq.name}"
-        End If`).join('\n        ') : ''}
+        End If`
+                )
+                .join('\n        ')
+            : ''
+        }
     Next i
     
-    MsgBox "Equations modified"` : ''}
+    MsgBox "Equations modified"`
+        : ''
+    }
     
-    ${args.operation === 'delete' ? `
+    ${
+      args.operation === 'delete'
+        ? `
     ' Delete equations
-    ${args.equations ? args.equations.map((eq: any) => `
+    ${
+      args.equations
+        ? args.equations
+            .map(
+              (eq: any) => `
     For i = swEquationMgr.GetCount - 1 To 0 Step -1
         If InStr(swEquationMgr.Equation(i), "\\"${eq.name}\\"") > 0 Then
             swEquationMgr.Delete i
             Debug.Print "Deleted equation: ${eq.name}"
         End If
-    Next i`).join('\n    ') : ''}
+    Next i`
+            )
+            .join('\n    ')
+        : ''
+    }
     
-    MsgBox "Equations deleted"` : ''}
+    MsgBox "Equations deleted"`
+        : ''
+    }
     
-    ${args.operation === 'link' ? `
+    ${
+      args.operation === 'link'
+        ? `
     ' Link to external equation file
     If swEquationMgr.LinkToFile Then
         ' Already linked, update path
@@ -207,9 +286,13 @@ Sub ManageEquations_${args.operation}()
     End If
     
     swEquationMgr.UpdateValuesFromExternalEquationFile
-    MsgBox "Linked to external file: ${args.externalFile}"` : ''}
+    MsgBox "Linked to external file: ${args.externalFile}"`
+        : ''
+    }
     
-    ${args.operation === 'export' ? `
+    ${
+      args.operation === 'export'
+        ? `
     ' Export equations to file
     Dim fso As Object, file As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
@@ -230,11 +313,13 @@ Sub ManageEquations_${args.operation}()
     Next i
     
     file.Close
-    MsgBox "Equations exported to: ${args.externalFile || 'C:\\Temp\\equations.txt'}"` : ''}
+    MsgBox "Equations exported to: ${args.externalFile || 'C:\\Temp\\equations.txt'}"`
+        : ''
+    }
     
     swModel.EditRebuild3
 End Sub`;
-    }
+    },
   },
 
   {
@@ -243,21 +328,33 @@ End Sub`;
     inputSchema: z.object({
       studyType: z.enum(['static', 'frequency', 'buckling', 'thermal', 'nonlinear', 'dynamic']),
       studyName: z.string(),
-      materials: z.array(z.object({
-        componentName: z.string(),
-        materialName: z.string()
-      })).optional(),
-      fixtures: z.array(z.object({
-        faceName: z.string(),
-        type: z.enum(['fixed', 'roller', 'hinge'])
-      })).optional(),
-      loads: z.array(z.object({
-        faceName: z.string(),
-        type: z.enum(['force', 'pressure', 'torque']),
-        value: z.number(),
-        unit: z.string()
-      })).optional(),
-      meshQuality: z.enum(['draft', 'standard', 'fine']).optional()
+      materials: z
+        .array(
+          z.object({
+            componentName: z.string(),
+            materialName: z.string(),
+          })
+        )
+        .optional(),
+      fixtures: z
+        .array(
+          z.object({
+            faceName: z.string(),
+            type: z.enum(['fixed', 'roller', 'hinge']),
+          })
+        )
+        .optional(),
+      loads: z
+        .array(
+          z.object({
+            faceName: z.string(),
+            type: z.enum(['force', 'pressure', 'torque']),
+            value: z.number(),
+            unit: z.string(),
+          })
+        )
+        .optional(),
+      meshQuality: z.enum(['draft', 'standard', 'fine']).optional(),
     }),
     handler: (args: any) => {
       return `
@@ -293,12 +390,19 @@ Sub SetupSimulationStudy_${args.studyType}()
     ' Create study
     Set swStudy = swStudyMgr.CreateNewStudy3( _
         "${args.studyName}", _
-        ${args.studyType === 'static' ? '0' :
-          args.studyType === 'frequency' ? '1' :
-          args.studyType === 'buckling' ? '2' :
-          args.studyType === 'thermal' ? '3' :
-          args.studyType === 'nonlinear' ? '4' :
-          '5'}, _
+        ${
+          args.studyType === 'static'
+            ? '0'
+            : args.studyType === 'frequency'
+              ? '1'
+              : args.studyType === 'buckling'
+                ? '2'
+                : args.studyType === 'thermal'
+                  ? '3'
+                  : args.studyType === 'nonlinear'
+                    ? '4'
+                    : '5'
+        }, _
         0, errCode)
     
     If swStudy Is Nothing Then
@@ -306,52 +410,71 @@ Sub SetupSimulationStudy_${args.studyType}()
         Exit Sub
     End If
     
-    ${args.materials && args.materials.length > 0 ? `
+    ${
+      args.materials && args.materials.length > 0
+        ? `
     ' Apply materials
-    ${args.materials.map((mat: any) => `
+    ${args.materials
+      .map(
+        (mat: any) => `
     swModel.Extension.SelectByID2 "${mat.componentName}", "COMPONENT", 0, 0, 0, False, 0, Nothing, 0
     Dim swMaterial As Object
     Set swMaterial = swStudy.GetMaterial("${mat.materialName}")
     If Not swMaterial Is Nothing Then
         swStudy.ApplyMaterial swMaterial
         Debug.Print "Applied material: ${mat.materialName} to ${mat.componentName}"
-    End If`).join('\n    ')}` : ''}
+    End If`
+      )
+      .join('\n    ')}`
+        : ''
+    }
     
-    ${args.fixtures && args.fixtures.length > 0 ? `
+    ${
+      args.fixtures && args.fixtures.length > 0
+        ? `
     ' Add fixtures
-    ${args.fixtures.map((fix: any) => `
+    ${args.fixtures
+      .map(
+        (fix: any) => `
     swModel.Extension.SelectByID2 "${fix.faceName}", "FACE", 0, 0, 0, False, 0, Nothing, 0
     Dim swFixture As Object
     Set swFixture = swStudy.AddRestraint( _
-        ${fix.type === 'fixed' ? '0' :
-          fix.type === 'roller' ? '1' :
-          '2'}, _
+        ${fix.type === 'fixed' ? '0' : fix.type === 'roller' ? '1' : '2'}, _
         swModel.SelectionManager)
     If Not swFixture Is Nothing Then
         Debug.Print "Added ${fix.type} fixture to ${fix.faceName}"
-    End If`).join('\n    ')}` : ''}
+    End If`
+      )
+      .join('\n    ')}`
+        : ''
+    }
     
-    ${args.loads && args.loads.length > 0 ? `
+    ${
+      args.loads && args.loads.length > 0
+        ? `
     ' Add loads
-    ${args.loads.map((load: any) => `
+    ${args.loads
+      .map(
+        (load: any) => `
     swModel.Extension.SelectByID2 "${load.faceName}", "FACE", 0, 0, 0, False, 0, Nothing, 0
     Dim swLoad As Object
     Set swLoad = swStudy.AddLoad( _
-        ${load.type === 'force' ? '0' :
-          load.type === 'pressure' ? '1' :
-          '2'}, _
+        ${load.type === 'force' ? '0' : load.type === 'pressure' ? '1' : '2'}, _
         swModel.SelectionManager)
     If Not swLoad Is Nothing Then
         swLoad.Value = ${load.value}
         swLoad.Unit = "${load.unit}"
         Debug.Print "Added ${load.type}: ${load.value} ${load.unit} to ${load.faceName}"
-    End If`).join('\n    ')}` : ''}
+    End If`
+      )
+      .join('\n    ')}`
+        : ''
+    }
     
     ' Create mesh
     Set swMesh = swStudy.GetMesh
     If Not swMesh Is Nothing Then
-        swMesh.Quality = ${args.meshQuality === 'draft' ? '0' :
-                           args.meshQuality === 'fine' ? '2' : '1'}
+        swMesh.Quality = ${args.meshQuality === 'draft' ? '0' : args.meshQuality === 'fine' ? '2' : '1'}
         
         Dim meshResult As Long
         meshResult = swStudy.CreateMesh(0, 0, 0, errCode)
@@ -365,7 +488,7 @@ Sub SetupSimulationStudy_${args.studyType}()
     
     MsgBox "Simulation study '${args.studyName}' created and configured"
 End Sub`;
-    }
+    },
   },
 
   {
@@ -373,16 +496,29 @@ End Sub`;
     description: 'Generate VBA for advanced API automation and event handling',
     inputSchema: z.object({
       automationType: z.enum(['event_handler', 'macro_feature', 'property_page', 'add_in']),
-      eventTypes: z.array(z.enum([
-        'file_save', 'file_open', 'rebuild', 'selection_change',
-        'dimension_change', 'feature_add', 'configuration_change'
-      ])).optional(),
+      eventTypes: z
+        .array(
+          z.enum([
+            'file_save',
+            'file_open',
+            'rebuild',
+            'selection_change',
+            'dimension_change',
+            'feature_add',
+            'configuration_change',
+          ])
+        )
+        .optional(),
       className: z.string().optional(),
-      methods: z.array(z.object({
-        name: z.string(),
-        parameters: z.array(z.string()).optional(),
-        returnType: z.string().optional()
-      })).optional()
+      methods: z
+        .array(
+          z.object({
+            name: z.string(),
+            parameters: z.array(z.string()).optional(),
+            returnType: z.string().optional(),
+          })
+        )
+        .optional(),
     }),
     handler: (args: any) => {
       const eventHandlers: Record<string, string> = {
@@ -418,11 +554,13 @@ Private Function swApp_DimensionChangeNotify(ByVal swDim As Object) As Long
     Debug.Print "Dimension changed: " & swDim.FullName
     ' Add custom dimension change logic here
     swApp_DimensionChangeNotify = 0
-End Function`
+End Function`,
       };
 
       return `
-${args.automationType === 'event_handler' ? `
+${
+  args.automationType === 'event_handler'
+    ? `
 ' Class module for SolidWorks event handling
 ' Name this class module: ${args.className || 'SwEventHandler'}
 
@@ -453,9 +591,13 @@ End Sub
 
 ' Usage in main module:
 ' Dim eventHandler As New SwEventHandler
-' eventHandler.Init swApp, swModel` : ''}
+' eventHandler.Init swApp, swModel`
+    : ''
+}
 
-${args.automationType === 'macro_feature' ? `
+${
+  args.automationType === 'macro_feature'
+    ? `
 Sub CreateMacroFeature()
     Dim swApp As SldWorks.SldWorks
     Dim swModel As SldWorks.ModelDoc2
@@ -517,9 +659,13 @@ Function swmEdit(swApp As Variant, swModel As Variant, swFeature As Variant) As 
     ' Custom edit logic
     MsgBox "Editing macro feature"
     swmEdit = True
-End Function` : ''}
+End Function`
+    : ''
+}
 
-${args.automationType === 'property_page' ? `
+${
+  args.automationType === 'property_page'
+    ? `
 ' Property Manager Page Handler
 Sub CreatePropertyPage()
     Dim swApp As SldWorks.SldWorks
@@ -567,9 +713,13 @@ Sub CreatePropertyPage()
         ' Show property page
         swPMPage.Show
     End If
-End Sub` : ''}
+End Sub`
+    : ''
+}
 
-${args.automationType === 'add_in' ? `
+${
+  args.automationType === 'add_in'
+    ? `
 ' SolidWorks Add-in Template
 ' Implements SwAddin interface
 
@@ -625,8 +775,10 @@ End Sub
 
 Public Sub OnCommand1()
     MsgBox "Custom command executed"
-End Sub` : ''}`;
-    }
+End Sub`
+    : ''
+}`;
+    },
   },
 
   {
@@ -638,7 +790,7 @@ End Sub` : ''}`;
       logToFile: z.boolean().optional(),
       logPath: z.string().optional(),
       emailOnError: z.boolean().optional(),
-      emailAddress: z.string().optional()
+      emailAddress: z.string().optional(),
     }),
     handler: (args: any) => {
       return `
@@ -694,9 +846,13 @@ ErrorHandler:
     ' Log error
     LogMessage "ERROR", errorMsg
     
-    ${args.emailOnError ? `
+    ${
+      args.emailOnError
+        ? `
     ' Send email notification
-    SendErrorEmail "${args.emailAddress}", "${args.functionName} Error", errorMsg` : ''}
+    SendErrorEmail "${args.emailAddress}", "${args.functionName} Error", errorMsg`
+        : ''
+    }
     
     ' Display error to user
     MsgBox errorMsg, vbCritical, "Error in ${args.operationType}"
@@ -712,7 +868,9 @@ ErrorHandler:
 End Sub
 
 Private Sub LogMessage(logLevel As String, message As String)
-    ${args.logToFile ? `
+    ${
+      args.logToFile
+        ? `
     Dim fso As Object
     Dim logFile As Object
     
@@ -733,13 +891,17 @@ Private Sub LogMessage(logLevel As String, message As String)
     logFile.Close
     
     Set logFile = Nothing
-    Set fso = Nothing` : ''}
+    Set fso = Nothing`
+        : ''
+    }
     
     ' Also output to immediate window
     Debug.Print "[" & logLevel & "] " & Now & " - " & message
 End Sub
 
-${args.emailOnError ? `
+${
+  args.emailOnError
+    ? `
 Private Sub SendErrorEmail(recipient As String, subject As String, body As String)
     On Error Resume Next
     
@@ -762,7 +924,9 @@ Private Sub SendErrorEmail(recipient As String, subject As String, body As Strin
     
     Set mail = Nothing
     Set outlook = Nothing
-End Sub` : ''}
+End Sub`
+    : ''
+}
 
 ' Performance monitoring
 Private Sub MeasurePerformance(operationName As String, codeBlock As String)
@@ -789,6 +953,6 @@ Private Function GetMemoryUsage() As Long
     On Error Resume Next
     GetMemoryUsage = Application.MemoryUsed * 1024
 End Function`;
-    }
-  }
+    },
+  },
 ];

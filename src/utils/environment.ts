@@ -178,7 +178,7 @@ export function validateEnvironment(env: Environment): { valid: boolean; errors:
 
   // Validate version format
   const version = parseInt(env.solidworks.version, 10);
-  if (isNaN(version) || version < 2019 || version > 2030) {
+  if (Number.isNaN(version) || version < 2019 || version > 2030) {
     errors.push(`Invalid SolidWorks version: ${env.solidworks.version}. Expected year between 2019-2030`);
   }
 

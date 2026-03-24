@@ -1,6 +1,6 @@
 {
   "name": "solidworks-mcp-server",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "SolidWorks MCP Server - AI-driven CAD automation with intelligent COM/VBA routing",
   "type": "module",
   "main": "dist/index.js",
@@ -11,8 +11,11 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "lint": "eslint src",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --fix src/",
+    "format": "biome format --write src/",
     "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && biome check src/",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -27,22 +30,20 @@
     "mssql": "^11.0.0",
     "pg": "^8.16.0",
     "uuid": "^11.0.0",
-    "winax": "^3.4.2",
     "winston": "^3.15.0",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.24.6"
   },
+  "optionalDependencies": {
+    "winax": "^3.4.2"
+  },
   "devDependencies": {
-    "@eslint/js": "^9.32.0",
+    "@biomejs/biome": "^2.4.8",
     "@types/dotenv": "^6.1.1",
     "@types/mssql": "^9.1.7",
     "@types/node": "^22.5.1",
     "@types/pg": "^8.15.5",
     "@types/uuid": "^10.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.4.0",
-    "@typescript-eslint/parser": "^8.4.0",
-    "eslint": "^9.9.1",
-    "prettier": "^3.3.3",
     "tsx": "^4.7.0",
     "typescript": "^5.5.4",
     "vitest": "^1.2.1"

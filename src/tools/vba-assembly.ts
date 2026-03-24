@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { SolidWorksAPI } from '../solidworks/api.js';
 
 /**
  * VBA Generation for Assembly Operations
@@ -12,9 +11,22 @@ export const assemblyVBATools = [
     description: 'Generate VBA for creating assembly mates',
     inputSchema: z.object({
       mateType: z.enum([
-        'coincident', 'parallel', 'perpendicular', 'tangent', 'concentric',
-        'distance', 'angle', 'symmetric', 'width', 'path', 'linear_coupler',
-        'cam', 'gear', 'rack_pinion', 'screw', 'universal_joint'
+        'coincident',
+        'parallel',
+        'perpendicular',
+        'tangent',
+        'concentric',
+        'distance',
+        'angle',
+        'symmetric',
+        'width',
+        'path',
+        'linear_coupler',
+        'cam',
+        'gear',
+        'rack_pinion',
+        'screw',
+        'universal_joint',
       ]),
       component1: z.string().describe('First component name'),
       face1: z.string().describe('Face/edge/vertex on first component'),
@@ -23,7 +35,7 @@ export const assemblyVBATools = [
       distance: z.number().optional().describe('Distance in mm for distance mate'),
       angle: z.number().optional().describe('Angle in degrees for angle mate'),
       flip: z.boolean().optional(),
-      alignmentType: z.enum(['aligned', 'anti_aligned', 'closest']).optional()
+      alignmentType: z.enum(['aligned', 'anti_aligned', 'closest']).optional(),
     }),
     handler: (args: any) => {
       const mateConstants: Record<string, string> = {
@@ -38,7 +50,7 @@ export const assemblyVBATools = [
         cam: 'swMateCAMFOLLOWER',
         gear: 'swMateGEAR',
         rack_pinion: 'swMateRACKPINION',
-        screw: 'swMateSCREW'
+        screw: 'swMateSCREW',
       };
 
       return `
@@ -69,29 +81,41 @@ Sub CreateAssemblyMate_${args.mateType}()
     swAssy.Extension.SelectByID2 "${args.face2}@${args.component2}", "FACE", 0, 0, 0, True, 1, Nothing, 0
     
     ' Create mate
-    ${args.mateType === 'distance' ? `
+    ${
+      args.mateType === 'distance'
+        ? `
     Set swMate = swAssy.AddMate5( _
         ${mateConstants[args.mateType]}, _
         ${args.alignmentType === 'anti_aligned' ? 'swMateAlignANTI_ALIGNED' : 'swMateAlignALIGNED'}, _
         ${args.flip ? 'True' : 'False'}, _
         ${args.distance / 1000}, 0, 0, 0, 0, 0, 0, 0, _
-        False, False, 0, mateError)` : ''}
+        False, False, 0, mateError)`
+        : ''
+    }
     
-    ${args.mateType === 'angle' ? `
+    ${
+      args.mateType === 'angle'
+        ? `
     Set swMate = swAssy.AddMate5( _
         ${mateConstants[args.mateType]}, _
         ${args.alignmentType === 'anti_aligned' ? 'swMateAlignANTI_ALIGNED' : 'swMateAlignALIGNED'}, _
         ${args.flip ? 'True' : 'False'}, _
-        0, ${args.angle * Math.PI / 180}, 0, 0, 0, 0, 0, 0, _
-        False, False, 0, mateError)` : ''}
+        0, ${(args.angle * Math.PI) / 180}, 0, 0, 0, 0, 0, 0, _
+        False, False, 0, mateError)`
+        : ''
+    }
     
-    ${!['distance', 'angle'].includes(args.mateType) ? `
+    ${
+      !['distance', 'angle'].includes(args.mateType)
+        ? `
     Set swMate = swAssy.AddMate5( _
         ${mateConstants[args.mateType]}, _
         ${args.alignmentType === 'anti_aligned' ? 'swMateAlignANTI_ALIGNED' : 'swMateAlignALIGNED'}, _
         ${args.flip ? 'True' : 'False'}, _
         0, 0, 0, 0, 0, 0, 0, 0, _
-        False, False, 0, mateError)` : ''}
+        False, False, 0, mateError)`
+        : ''
+    }
     
     If Not swMate Is Nothing Then
         MsgBox "${args.mateType} mate created successfully"
@@ -102,7 +126,7 @@ Sub CreateAssemblyMate_${args.mateType}()
     
     swAssy.ClearSelection2 True
 End Sub`;
-    }
+    },
   },
 
   {
@@ -113,14 +137,16 @@ End Sub`;
       componentPath: z.string().optional().describe('Path to component file'),
       componentName: z.string().optional().describe('Component name in assembly'),
       configurationName: z.string().optional(),
-      position: z.object({
-        x: z.number(),
-        y: z.number(),
-        z: z.number()
-      }).optional(),
+      position: z
+        .object({
+          x: z.number(),
+          y: z.number(),
+          z: z.number(),
+        })
+        .optional(),
       quantity: z.number().optional(),
       patternType: z.enum(['linear', 'circular']).optional(),
-      spacing: z.number().optional().describe('Spacing in mm')
+      spacing: z.number().optional().describe('Spacing in mm'),
     }),
     handler: (args: any) => {
       const operations: Record<string, string> = {
@@ -214,7 +240,9 @@ Sub CreateComponentPattern()
     ' Select component(s) to pattern
     swAssy.Extension.SelectByID2 "${args.componentName}", "COMPONENT", 0, 0, 0, False, 1, Nothing, 0
     
-    ${args.patternType === 'linear' ? `
+    ${
+      args.patternType === 'linear'
+        ? `
     ' Select direction references
     swAssy.Extension.SelectByID2 "Right Plane", "PLANE", 0, 0, 0, True, 2, Nothing, 0
     
@@ -223,16 +251,22 @@ Sub CreateComponentPattern()
         ${args.quantity || 3}, ${(args.spacing || 50) / 1000}, _
         1, 0, False, False, "NULL", "NULL", _
         False, False, False, False, False, False, _
-        False, False, False, False, 0, 0)` : ''}
+        False, False, False, False, 0, 0)`
+        : ''
+    }
     
-    ${args.patternType === 'circular' ? `
+    ${
+      args.patternType === 'circular'
+        ? `
     ' Select axis
     swAssy.Extension.SelectByID2 "Axis1", "AXIS", 0, 0, 0, True, 2, Nothing, 0
     
     ' Create circular pattern
     Set swFeat = swAssy.FeatureManager.FeatureCircularPattern5( _
-        ${args.quantity || 6}, ${2 * Math.PI / (args.quantity || 6)}, _
-        False, "NULL", False, True, False, False)` : ''}
+        ${args.quantity || 6}, ${(2 * Math.PI) / (args.quantity || 6)}, _
+        False, "NULL", False, True, False, False)`
+        : ''
+    }
     
     If Not swFeat Is Nothing Then
         MsgBox "Component pattern created: " & swFeat.Name
@@ -269,11 +303,11 @@ Sub CreateExplodedView()
         MsgBox "Exploded view created"
         swAssy.ShowExploded2 True
     End If
-End Sub`
+End Sub`,
       };
 
       return operations[args.operation] || 'Operation not supported';
-    }
+    },
   },
 
   {
@@ -281,13 +315,18 @@ End Sub`
     description: 'Generate VBA for assembly analysis',
     inputSchema: z.object({
       analysisType: z.enum([
-        'interference', 'clearance', 'collision', 'mass_properties',
-        'hole_alignment', 'assembly_statistics', 'bom_export'
+        'interference',
+        'clearance',
+        'collision',
+        'mass_properties',
+        'hole_alignment',
+        'assembly_statistics',
+        'bom_export',
       ]),
       components: z.array(z.string()).optional().describe('Components to analyze'),
       outputPath: z.string().optional().describe('Path for results export'),
       includeSubassemblies: z.boolean().optional().default(true),
-      treatCoincidentAsInterference: z.boolean().optional().default(false)
+      treatCoincidentAsInterference: z.boolean().optional().default(false),
     }),
     handler: (args: any) => {
       const analyses: Record<string, string> = {
@@ -317,10 +356,18 @@ Sub CheckInterference()
     swIntMgr.IncludeMultibodyPartInterferences = True
     swIntMgr.MakeInterferingPartsTransparent = True
     
-    ${args.components && args.components.length > 0 ? `
+    ${
+      args.components && args.components.length > 0
+        ? `
     ' Select specific components
-    ${args.components.map((comp: string) => `
-    swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`).join('')}` : ''}
+    ${args.components
+      .map(
+        (comp: string) => `
+    swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`
+      )
+      .join('')}`
+        : ''
+    }
     
     ' Run interference detection
     vInts = swIntMgr.GetInterferences
@@ -340,7 +387,9 @@ Sub CheckInterference()
             Debug.Print "  Volume: " & Format(vol, "0.00") & " mm³"
         Next i
         
-        ${args.outputPath ? `
+        ${
+          args.outputPath
+            ? `
         ' Export results
         Dim fso As Object, file As Object
         Set fso = CreateObject("Scripting.FileSystemObject")
@@ -361,7 +410,9 @@ Sub CheckInterference()
         Next i
         
         file.Close
-        MsgBox "Report exported to: " & "${args.outputPath}"` : ''}
+        MsgBox "Report exported to: " & "${args.outputPath}"`
+            : ''
+        }
     Else
         MsgBox "No interferences found"
     End If
@@ -382,14 +433,22 @@ Sub CalculateMassProperties()
     
     Set swMass = swAssy.Extension.CreateMassProperty
     
-    ${args.components && args.components.length > 0 ? `
+    ${
+      args.components && args.components.length > 0
+        ? `
     ' Select specific components
     swAssy.ClearSelection2 True
-    ${args.components.map((comp: string) => `
-    swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`).join('')}
+    ${args.components
+      .map(
+        (comp: string) => `
+    swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`
+      )
+      .join('')}
     
     ' Calculate for selected components
-    swMass.UseSelectedOnly = True` : ''}
+    swMass.UseSelectedOnly = True`
+        : ''
+    }
     
     mass = swMass.Mass * 1000 ' Convert to grams
     vCOG = swMass.CenterOfMass
@@ -406,7 +465,9 @@ Sub CalculateMassProperties()
            "Y: " & Format(vCOG(1) * 1000, "0.00") & " mm" & vbCrLf & _
            "Z: " & Format(vCOG(2) * 1000, "0.00") & " mm"
     
-    ${args.outputPath ? `
+    ${
+      args.outputPath
+        ? `
     ' Export to file
     Dim fso As Object, file As Object
     Set fso = CreateObject("Scripting.FileSystemObject")
@@ -430,7 +491,9 @@ Sub CalculateMassProperties()
     file.WriteLine "  Izz: " & Format(vMOI(2), "0.0000") & " kg·m²"
     
     file.Close
-    MsgBox "Report saved to: " & "${args.outputPath}"` : ''}
+    MsgBox "Report saved to: " & "${args.outputPath}"`
+        : ''
+    }
 End Sub`,
         bom_export: `
 Sub ExportBOM()
@@ -490,15 +553,19 @@ Sub ExportBOM()
         xlSheet.Range("A1").CurrentRegion.Columns.AutoFit
         xlSheet.Range("A1").CurrentRegion.Borders.LineStyle = 1
         
-        ${args.outputPath ? `
+        ${
+          args.outputPath
+            ? `
         xlBook.SaveAs "${args.outputPath}"
-        MsgBox "BOM exported to: ${args.outputPath}"` : ''}
+        MsgBox "BOM exported to: ${args.outputPath}"`
+            : ''
+        }
     End If
-End Sub`
+End Sub`,
       };
 
       return analyses[args.analysisType] || 'Analysis type not supported';
-    }
+    },
   },
 
   {
@@ -510,7 +577,7 @@ End Sub`
       parentConfig: z.string().optional(),
       componentsToSuppress: z.array(z.string()).optional(),
       properties: z.record(z.string()).optional(),
-      displayStates: z.array(z.string()).optional()
+      displayStates: z.array(z.string()).optional(),
     }),
     handler: (args: any) => {
       return `
@@ -531,7 +598,9 @@ Sub ManageConfiguration_${args.operation}()
     
     Set swConfigMgr = swAssy.ConfigurationManager
     
-    ${args.operation === 'create' ? `
+    ${
+      args.operation === 'create'
+        ? `
     ' Create new configuration
     Set swConfig = swAssy.AddConfiguration3( _
         "${args.configName}", _
@@ -545,22 +614,42 @@ Sub ManageConfiguration_${args.operation}()
         ' Activate new configuration
         swAssy.ShowConfiguration2 "${args.configName}"
         
-        ${args.componentsToSuppress && args.componentsToSuppress.length > 0 ? `
+        ${
+          args.componentsToSuppress && args.componentsToSuppress.length > 0
+            ? `
         ' Suppress components
-        ${args.componentsToSuppress.map((comp: string) => `
-        swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`).join('')}
-        swAssy.EditSuppress2` : ''}
+        ${args.componentsToSuppress
+          .map(
+            (comp: string) => `
+        swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`
+          )
+          .join('')}
+        swAssy.EditSuppress2`
+            : ''
+        }
         
-        ${args.properties ? `
+        ${
+          args.properties
+            ? `
         ' Set custom properties
-        ${Object.entries(args.properties || {}).map(([key, value]) => `
+        ${Object.entries(args.properties || {})
+          .map(
+            ([key, value]) => `
         swConfig.CustomPropertyManager.Add3 "${key}", swCustomInfoType_e.swCustomInfoText, "${value}", _
-            swCustomPropertyAddOption_e.swCustomPropertyReplaceValue`).join('')}` : ''}
+            swCustomPropertyAddOption_e.swCustomPropertyReplaceValue`
+          )
+          .join('')}`
+            : ''
+        }
         
         MsgBox "Configuration '${args.configName}' created"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'modify' ? `
+    ${
+      args.operation === 'modify'
+        ? `
     ' Get configuration
     Set swConfig = swAssy.GetConfigurationByName("${args.configName}")
     
@@ -568,18 +657,30 @@ Sub ManageConfiguration_${args.operation}()
         ' Activate configuration
         swAssy.ShowConfiguration2 "${args.configName}"
         
-        ${args.componentsToSuppress && args.componentsToSuppress.length > 0 ? `
+        ${
+          args.componentsToSuppress && args.componentsToSuppress.length > 0
+            ? `
         ' Modify suppression state
-        ${args.componentsToSuppress.map((comp: string) => `
-        swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`).join('')}
-        swAssy.EditSuppress2` : ''}
+        ${args.componentsToSuppress
+          .map(
+            (comp: string) => `
+        swAssy.Extension.SelectByID2 "${comp}", "COMPONENT", 0, 0, 0, True, 0, Nothing, 0`
+          )
+          .join('')}
+        swAssy.EditSuppress2`
+            : ''
+        }
         
         MsgBox "Configuration '${args.configName}' modified"
     Else
         MsgBox "Configuration not found"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'delete' ? `
+    ${
+      args.operation === 'delete'
+        ? `
     ' Delete configuration
     bRet = swAssy.DeleteConfiguration2("${args.configName}")
     
@@ -587,10 +688,12 @@ Sub ManageConfiguration_${args.operation}()
         MsgBox "Configuration '${args.configName}' deleted"
     Else
         MsgBox "Failed to delete configuration"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
     swAssy.EditRebuild3
 End Sub`;
-    }
-  }
+    },
+  },
 ];

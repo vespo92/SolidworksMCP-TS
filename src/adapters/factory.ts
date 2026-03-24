@@ -1,6 +1,6 @@
 /**
  * Adapter Factory for SolidWorks MCP Server
- * 
+ *
  * Provides centralized adapter creation with:
  * - Multiple adapter type support
  * - Circuit breaker integration
@@ -8,15 +8,11 @@
  * - Automatic fallback selection
  */
 
-import { 
-  ISolidWorksAdapter, 
-  AdapterConfig,
-  AdapterHealth
-} from './types.js';
-import { WinAxAdapter } from './winax-adapter.js';
+import { logger } from '../utils/logger.js';
 import { CircuitBreakerAdapter } from './circuit-breaker.js';
 import { ConnectionPoolAdapter } from './connection-pool.js';
-import { logger } from '../utils/logger.js';
+import type { AdapterConfig, AdapterHealth, ISolidWorksAdapter } from './types.js';
+import { WinAxAdapter } from './winax-adapter.js';
 
 /**
  * Factory for creating and managing SolidWorks adapters
@@ -36,11 +32,11 @@ export class AdapterFactory {
     poolSize: 3,
     enableMetrics: true,
     enableLogging: true,
-    logLevel: 'info'
+    logLevel: 'info',
   };
-  
+
   private constructor() {}
-  
+
   /**
    * Get singleton instance of factory
    */
@@ -50,14 +46,14 @@ export class AdapterFactory {
     }
     return AdapterFactory.instance;
   }
-  
+
   /**
    * Create or get adapter based on configuration
    */
   async createAdapter(config?: Partial<AdapterConfig>): Promise<ISolidWorksAdapter> {
     const fullConfig = { ...this.defaultConfig, ...config };
     const cacheKey = this.getCacheKey(fullConfig);
-    
+
     // Return cached adapter if available
     if (this.adapters.has(cacheKey)) {
       const adapter = this.adapters.get(cacheKey)!;
@@ -70,10 +66,10 @@ export class AdapterFactory {
         this.adapters.delete(cacheKey);
       }
     }
-    
+
     // Create new adapter
     let adapter = await this.createBaseAdapter(fullConfig);
-    
+
     // Wrap with circuit breaker if enabled
     if (fullConfig.enableCircuitBreaker) {
       adapter = new CircuitBreakerAdapter(
@@ -82,78 +78,78 @@ export class AdapterFactory {
         fullConfig.circuitBreakerTimeout!
       );
     }
-    
+
     // Wrap with connection pool if enabled
     if (fullConfig.enableConnectionPool) {
-      adapter = new ConnectionPoolAdapter(
-        () => this.createBaseAdapter(fullConfig),
-        fullConfig.poolSize!
-      );
+      adapter = new ConnectionPoolAdapter(() => this.createBaseAdapter(fullConfig), fullConfig.poolSize!);
       await (adapter as ConnectionPoolAdapter).initialize();
     }
-    
+
     // Cache the adapter
     this.adapters.set(cacheKey, adapter);
-    
+
     logger.info(`Created new adapter: ${cacheKey}`);
     return adapter;
   }
-  
+
   /**
    * Create base adapter based on type
    */
   private async createBaseAdapter(config: AdapterConfig): Promise<ISolidWorksAdapter> {
     switch (config.type) {
-      case 'winax':
+      case 'winax': {
         const winaxAdapter = new WinAxAdapter();
         await winaxAdapter.connect();
         return winaxAdapter;
-        
-      case 'macro-fallback':
+      }
+
+      case 'macro-fallback': {
         // Create a winax adapter that primarily uses macros
         const macroAdapter = new WinAxAdapter();
         await macroAdapter.connect();
         // Configure to prefer macro execution
         return macroAdapter;
-        
-      case 'hybrid':
+      }
+
+      case 'hybrid': {
         // Create a hybrid adapter that intelligently switches between methods
         const hybridAdapter = new WinAxAdapter();
         await hybridAdapter.connect();
         return hybridAdapter;
-        
+      }
+
       default:
         throw new Error(`Unknown adapter type: ${config.type}`);
     }
   }
-  
+
   /**
    * Get the best available adapter based on system capabilities
    */
   async getBestAdapter(): Promise<ISolidWorksAdapter> {
     // Try to determine the best adapter type
     const systemCapabilities = await this.detectSystemCapabilities();
-    
-    let config: Partial<AdapterConfig> = {};
-    
+
+    const config: Partial<AdapterConfig> = {};
+
     if (systemCapabilities.hasWinAx) {
       config.type = 'winax';
     } else {
       config.type = 'macro-fallback';
     }
-    
+
     // Enable circuit breaker for stability
     config.enableCircuitBreaker = true;
-    
+
     // Enable connection pool for performance if we have enough resources
     if (systemCapabilities.memoryGB > 8) {
       config.enableConnectionPool = true;
       config.poolSize = Math.min(5, Math.floor(systemCapabilities.memoryGB / 4));
     }
-    
+
     return this.createAdapter(config);
   }
-  
+
   /**
    * Detect system capabilities
    */
@@ -163,43 +159,43 @@ export class AdapterFactory {
       hasDotNet: false,
       memoryGB: 4,
       cpuCores: 2,
-      osType: process.platform
+      osType: process.platform,
     };
-    
+
     // Check for winax availability
     try {
       require('winax');
       capabilities.hasWinAx = true;
-    } catch (e) {
+    } catch (_e) {
       capabilities.hasWinAx = false;
     }
-    
+
     // Get system memory
     try {
-      const os = await import('os');
+      const os = await import('node:os');
       capabilities.memoryGB = Math.floor(os.totalmem() / (1024 * 1024 * 1024));
       capabilities.cpuCores = os.cpus().length;
-    } catch (e) {
+    } catch (_e) {
       // Use defaults
     }
-    
+
     return capabilities;
   }
-  
+
   /**
    * Generate cache key for adapter configuration
    */
   private getCacheKey(config: AdapterConfig): string {
     return `${config.type}_cb${config.enableCircuitBreaker}_pool${config.enableConnectionPool}`;
   }
-  
+
   /**
    * Get all cached adapters
    */
   getCachedAdapters(): Map<string, ISolidWorksAdapter> {
     return new Map(this.adapters);
   }
-  
+
   /**
    * Clear all cached adapters
    */
@@ -213,29 +209,29 @@ export class AdapterFactory {
     }
     this.adapters.clear();
   }
-  
+
   /**
    * Health check all cached adapters
    */
   async healthCheckAll(): Promise<Map<string, AdapterHealth>> {
     const results = new Map<string, AdapterHealth>();
-    
+
     for (const [key, adapter] of this.adapters.entries()) {
       try {
         const health = await adapter.healthCheck();
         results.set(key, health);
-      } catch (e) {
+      } catch (_e) {
         results.set(key, {
           healthy: false,
           lastCheck: new Date(),
           errorCount: 1,
           successCount: 0,
           averageResponseTime: 0,
-          connectionStatus: 'error'
+          connectionStatus: 'error',
         });
       }
     }
-    
+
     return results;
   }
 }

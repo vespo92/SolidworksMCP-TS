@@ -4,45 +4,59 @@
  */
 
 import { z } from 'zod';
-import { SolidWorksResource, ResourceStatus, ValidationResult } from './base.js';
-import { SolidWorksAPI } from '../solidworks/api.js';
 import { dbManager } from '../db/connection.js';
+import type { SolidWorksAPI } from '../solidworks/api.js';
 import { logger } from '../utils/logger.js';
+import { ResourceStatus, SolidWorksResource, type ValidationResult } from './base.js';
 
 // Schema for design table configuration
 const DesignTableSchema = z.object({
   tableName: z.string().min(1),
   fileName: z.string().optional(),
-  parameters: z.array(z.object({
-    name: z.string(),
-    type: z.enum(['dimension', 'feature', 'configuration', 'custom']),
-    dataType: z.enum(['number', 'string', 'boolean']),
-    defaultValue: z.any().optional(),
-    sqlColumn: z.string().optional(),
-    formula: z.string().optional()
-  })),
-  configurations: z.array(z.object({
-    name: z.string(),
-    values: z.record(z.any()),
-    active: z.boolean().default(false)
-  })).optional(),
-  dataSource: z.object({
-    type: z.enum(['file', 'sql', 'api', 'manual']),
-    connectionString: z.string().optional(),
-    query: z.string().optional(),
-    filePath: z.string().optional(),
-    apiEndpoint: z.string().optional(),
-    refreshInterval: z.number().optional()
-  }).optional(),
+  parameters: z.array(
+    z.object({
+      name: z.string(),
+      type: z.enum(['dimension', 'feature', 'configuration', 'custom']),
+      dataType: z.enum(['number', 'string', 'boolean']),
+      defaultValue: z.any().optional(),
+      sqlColumn: z.string().optional(),
+      formula: z.string().optional(),
+    })
+  ),
+  configurations: z
+    .array(
+      z.object({
+        name: z.string(),
+        values: z.record(z.any()),
+        active: z.boolean().default(false),
+      })
+    )
+    .optional(),
+  dataSource: z
+    .object({
+      type: z.enum(['file', 'sql', 'api', 'manual']),
+      connectionString: z.string().optional(),
+      query: z.string().optional(),
+      filePath: z.string().optional(),
+      apiEndpoint: z.string().optional(),
+      refreshInterval: z.number().optional(),
+    })
+    .optional(),
   autoUpdate: z.boolean().default(false),
-  validation: z.object({
-    enabled: z.boolean().default(true),
-    rules: z.array(z.object({
-      parameter: z.string(),
-      rule: z.string(),
-      message: z.string()
-    })).optional()
-  }).optional()
+  validation: z
+    .object({
+      enabled: z.boolean().default(true),
+      rules: z
+        .array(
+          z.object({
+            parameter: z.string(),
+            rule: z.string(),
+            message: z.string(),
+          })
+        )
+        .optional(),
+    })
+    .optional(),
 });
 
 export type DesignTableConfig = z.infer<typeof DesignTableSchema>;
@@ -50,37 +64,32 @@ export type DesignTableConfig = z.infer<typeof DesignTableSchema>;
 export class DesignTableResource extends SolidWorksResource {
   readonly type = 'design-table';
   readonly schema = DesignTableSchema;
-  private sqlConnection: any = null;
-
-  constructor(id: string, name: string, properties: DesignTableConfig) {
-    super(id, name, properties);
-  }
 
   /**
    * Execute design table operations
    */
   async execute(api: SolidWorksAPI): Promise<any> {
     this.setStatus(ResourceStatus.EXECUTING);
-    
+
     try {
       const config = this._properties as DesignTableConfig;
-      
+
       // Load data from SQL if configured
       if (config.dataSource?.type === 'sql') {
         await this.loadFromSQL(config.dataSource);
       }
-      
+
       // Create or update design table in SolidWorks
       const result = await this.updateDesignTable(api, config);
-      
+
       this.setStatus(ResourceStatus.COMPLETED);
       this.setOutputs({
         tableId: result.tableId,
         configurationsCreated: result.configurations,
         parametersUpdated: result.parameters,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
+
       return result;
     } catch (error) {
       this.setStatus(ResourceStatus.FAILED);
@@ -98,26 +107,23 @@ export class DesignTableResource extends SolidWorksResource {
 
     try {
       // Create database connection
-      const connection = await dbManager.createConnection(
-        `design_table_${this.id}`,
-        dataSource.connectionString
-      );
-      
+      const connection = await dbManager.createConnection(`design_table_${this.id}`, dataSource.connectionString);
+
       // Execute query
       const data = await connection.query(dataSource.query);
-      
+
       // Map SQL results to configurations
       const configurations = data.map((row: any, index: number) => ({
         name: row.config_name || row.name || `Config_${index + 1}`,
         values: this.mapSQLToParameters(row),
-        active: index === 0
+        active: index === 0,
       }));
 
       // Update properties with loaded configurations
       this._properties.configurations = configurations;
-      
+
       logger.info(`Loaded ${configurations.length} configurations from SQL`);
-      
+
       // Close connection
       await dbManager.closeConnection(`design_table_${this.id}`);
     } catch (error) {
@@ -127,7 +133,7 @@ export class DesignTableResource extends SolidWorksResource {
       const configurations = simulatedData.map((row: any, index: number) => ({
         name: row.config_name || `Config_${index + 1}`,
         values: this.mapSQLToParameters(row),
-        active: index === 0
+        active: index === 0,
       }));
       this._properties.configurations = configurations;
     }
@@ -145,7 +151,7 @@ export class DesignTableResource extends SolidWorksResource {
         width: 50,
         height: 25,
         material: 'Steel',
-        finish: 'Painted'
+        finish: 'Painted',
       },
       {
         config_name: 'Large',
@@ -153,7 +159,7 @@ export class DesignTableResource extends SolidWorksResource {
         width: 75,
         height: 40,
         material: 'Aluminum',
-        finish: 'Anodized'
+        finish: 'Anodized',
       },
       {
         config_name: 'Custom',
@@ -161,8 +167,8 @@ export class DesignTableResource extends SolidWorksResource {
         width: 60,
         height: 30,
         material: 'Steel',
-        finish: 'Powder Coated'
-      }
+        finish: 'Powder Coated',
+      },
     ];
   }
 
@@ -172,7 +178,7 @@ export class DesignTableResource extends SolidWorksResource {
   private mapSQLToParameters(row: any): Record<string, any> {
     const config = this._properties as DesignTableConfig;
     const values: Record<string, any> = {};
-    
+
     for (const param of config.parameters) {
       if (param.sqlColumn && row[param.sqlColumn] !== undefined) {
         values[param.name] = this.convertValue(row[param.sqlColumn], param.dataType);
@@ -182,7 +188,7 @@ export class DesignTableResource extends SolidWorksResource {
         values[param.name] = param.defaultValue;
       }
     }
-    
+
     return values;
   }
 
@@ -195,7 +201,6 @@ export class DesignTableResource extends SolidWorksResource {
         return Number(value);
       case 'boolean':
         return Boolean(value);
-      case 'string':
       default:
         return String(value);
     }
@@ -216,12 +221,12 @@ export class DesignTableResource extends SolidWorksResource {
   /**
    * Update design table in SolidWorks
    */
-  private updateDesignTable(api: SolidWorksAPI, config: DesignTableConfig): any {
+  private updateDesignTable(_api: SolidWorksAPI, config: DesignTableConfig): any {
     // This would interact with actual SolidWorks API
     return {
       tableId: this.id,
-      configurations: config.configurations?.map(c => c.name) || [],
-      parameters: config.parameters.map(p => p.name)
+      configurations: config.configurations?.map((c) => c.name) || [],
+      parameters: config.parameters.map((p) => p.name),
     };
   }
 
@@ -230,7 +235,7 @@ export class DesignTableResource extends SolidWorksResource {
    */
   toVBACode(): string {
     const config = this._properties as DesignTableConfig;
-    
+
     const vbaLines = [
       `' Design Table: ${this.name}`,
       `Sub CreateDesignTable_${this.sanitizeName(this.name)}()`,
@@ -241,9 +246,9 @@ export class DesignTableResource extends SolidWorksResource {
       '    Set swApp = Application.SldWorks',
       '    Set swModel = swApp.ActiveDoc',
       '    ',
-      '    \' Create design table',
+      "    ' Create design table",
       `    Set swDesignTable = swModel.InsertDesignTable("${config.tableName}", True, False)`,
-      '    '
+      '    ',
     ];
 
     // Add parameters
@@ -255,7 +260,7 @@ export class DesignTableResource extends SolidWorksResource {
     // Add configurations
     if (config.configurations) {
       vbaLines.push('    ');
-      vbaLines.push('    \' Add configurations');
+      vbaLines.push("    ' Add configurations");
       for (const cfg of config.configurations) {
         vbaLines.push(`    swDesignTable.AddConfiguration "${cfg.name}"`);
         for (const [key, value] of Object.entries(cfg.values)) {
@@ -276,21 +281,25 @@ export class DesignTableResource extends SolidWorksResource {
    */
   toMacroCode(): string {
     const config = this._properties as DesignTableConfig;
-    
-    return JSON.stringify({
-      type: 'design-table',
-      name: this.name,
-      actions: [
-        {
-          action: 'create-design-table',
-          parameters: {
-            tableName: config.tableName,
-            parameters: config.parameters,
-            configurations: config.configurations
-          }
-        }
-      ]
-    }, null, 2);
+
+    return JSON.stringify(
+      {
+        type: 'design-table',
+        name: this.name,
+        actions: [
+          {
+            action: 'create-design-table',
+            parameters: {
+              tableName: config.tableName,
+              parameters: config.parameters,
+              configurations: config.configurations,
+            },
+          },
+        ],
+      },
+      null,
+      2
+    );
   }
 
   /**
@@ -299,15 +308,15 @@ export class DesignTableResource extends SolidWorksResource {
   getRequiredCapabilities(): string[] {
     const config = this._properties as DesignTableConfig;
     const capabilities = ['design-table'];
-    
+
     if (config.dataSource?.type === 'sql') {
       capabilities.push('sql-integration');
     }
-    
+
     if (config.autoUpdate) {
       capabilities.push('auto-update');
     }
-    
+
     return capabilities;
   }
 
@@ -323,7 +332,7 @@ export class DesignTableResource extends SolidWorksResource {
    */
   async refresh(api: SolidWorksAPI): Promise<void> {
     const config = this._properties as DesignTableConfig;
-    
+
     if (config.dataSource?.type === 'sql') {
       await this.loadFromSQL(config.dataSource);
       await this.updateDesignTable(api, config);
@@ -335,45 +344,45 @@ export class DesignTableResource extends SolidWorksResource {
    */
   validateConfiguration(): ValidationResult {
     const result = super.validate();
-    
+
     if (!result.valid) {
       return result;
     }
-    
+
     const config = this._properties as DesignTableConfig;
-    const warnings: Array<{path: string; message: string}> = [];
-    
+    const warnings: Array<{ path: string; message: string }> = [];
+
     // Check for parameter conflicts
     const paramNames = new Set<string>();
     for (const param of config.parameters) {
       if (paramNames.has(param.name)) {
         warnings.push({
           path: `parameters.${param.name}`,
-          message: `Duplicate parameter name: ${param.name}`
+          message: `Duplicate parameter name: ${param.name}`,
         });
       }
       paramNames.add(param.name);
     }
-    
+
     // Validate SQL configuration
     if (config.dataSource?.type === 'sql') {
       if (!config.dataSource.connectionString) {
         warnings.push({
           path: 'dataSource.connectionString',
-          message: 'SQL connection string is required for SQL data source'
+          message: 'SQL connection string is required for SQL data source',
         });
       }
       if (!config.dataSource.query) {
         warnings.push({
           path: 'dataSource.query',
-          message: 'SQL query is required for SQL data source'
+          message: 'SQL query is required for SQL data source',
         });
       }
     }
-    
+
     return {
       valid: warnings.length === 0,
-      warnings: warnings.length > 0 ? warnings : undefined
+      warnings: warnings.length > 0 ? warnings : undefined,
     };
   }
 }

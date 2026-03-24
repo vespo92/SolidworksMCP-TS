@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SolidWorksAPI } from '../solidworks/api.js';
+import type { SolidWorksAPI } from '../solidworks/api.js';
 
 /**
  * VBA Generation for Part Modeling Operations
@@ -16,9 +16,9 @@ export const partModelingVBATools = [
       references: z.array(z.string()).describe('Names of reference entities'),
       offset: z.number().optional().describe('Offset distance in mm'),
       angle: z.number().optional().describe('Angle in degrees'),
-      flipDirection: z.boolean().optional()
+      flipDirection: z.boolean().optional(),
     }),
-    handler: (args: any, swApi: SolidWorksAPI) => {
+    handler: (args: any, _swApi: SolidWorksAPI) => {
       const templates: Record<string, string> = {
         plane: `
 Sub CreateReferencePlane()
@@ -39,23 +39,39 @@ Sub CreateReferencePlane()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select reference entities
-    ${args.references.map((ref: string, i: number) => `
+    ${args.references
+      .map(
+        (ref: string, i: number) => `
     swModel.ClearSelection2 True
-    swModel.Extension.SelectByID2 "${ref}", "PLANE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`).join('')}
+    swModel.Extension.SelectByID2 "${ref}", "PLANE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`
+      )
+      .join('')}
     
     ' Create reference plane
-    ${args.referenceType === 'offset' ? `
+    ${
+      args.referenceType === 'offset'
+        ? `
     Set swRefPlane = swFeatureMgr.InsertRefPlane( _
         swRefPlaneReferenceConstraint_Distance, ${args.offset || 10} / 1000, _
-        0, 0, 0, 0)` : ''}
-    ${args.referenceType === 'angle' ? `
+        0, 0, 0, 0)`
+        : ''
+    }
+    ${
+      args.referenceType === 'angle'
+        ? `
     Set swRefPlane = swFeatureMgr.InsertRefPlane( _
         swRefPlaneReferenceConstraint_Angle, ${args.angle || 45} * 3.14159 / 180, _
-        0, 0, 0, 0)` : ''}
-    ${args.referenceType === 'parallel' ? `
+        0, 0, 0, 0)`
+        : ''
+    }
+    ${
+      args.referenceType === 'parallel'
+        ? `
     Set swRefPlane = swFeatureMgr.InsertRefPlane( _
         swRefPlaneReferenceConstraint_Parallel, 0, _
-        0, 0, 0, 0)` : ''}
+        0, 0, 0, 0)`
+        : ''
+    }
     
     If Not swRefPlane Is Nothing Then
         MsgBox "Reference plane created successfully"
@@ -80,8 +96,12 @@ Sub CreateReferenceAxis()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select reference entities for axis
-    ${args.references.map((ref: string, i: number) => `
-    swModel.Extension.SelectByID2 "${ref}", "PLANE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`).join('')}
+    ${args.references
+      .map(
+        (ref: string, i: number) => `
+    swModel.Extension.SelectByID2 "${ref}", "PLANE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`
+      )
+      .join('')}
     
     ' Create axis
     Set swFeature = swFeatureMgr.InsertAxis2(True)
@@ -106,8 +126,12 @@ Sub CreateReferencePoint()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select reference for point
-    ${args.references.map((ref: string) => `
-    swModel.Extension.SelectByID2 "${ref}", "", 0, 0, 0, False, 0, Nothing, 0`).join('')}
+    ${args.references
+      .map(
+        (ref: string) => `
+    swModel.Extension.SelectByID2 "${ref}", "", 0, 0, 0, False, 0, Nothing, 0`
+      )
+      .join('')}
     
     ' Create reference point
     Set swRefPoint = swFeatureMgr.InsertReferencePoint(4, 0, ${args.offset || 0} / 1000, 1)
@@ -115,11 +139,11 @@ Sub CreateReferencePoint()
     If Not swRefPoint Is Nothing Then
         MsgBox "Reference point created"
     End If
-End Sub`
+End Sub`,
       };
-      
+
       return templates[args.geometryType] || 'Geometry type not supported';
-    }
+    },
   },
 
   {
@@ -132,7 +156,7 @@ End Sub`
       path: z.string().optional().describe('Path for sweep'),
       twistAngle: z.number().optional(),
       thinFeature: z.boolean().optional(),
-      thickness: z.number().optional().describe('Thickness in mm for thin features')
+      thickness: z.number().optional().describe('Thickness in mm for thin features'),
     }),
     handler: (args: any) => {
       const templates: Record<string, string> = {
@@ -157,10 +181,18 @@ Sub CreateSweepFeature()
     ' Select path
     swModel.Extension.SelectByID2 "${args.path || 'Sketch2'}", "SKETCH", 0, 0, 0, True, 4, Nothing, 0
     
-    ${args.guideCurves && args.guideCurves.length > 0 ? `
+    ${
+      args.guideCurves && args.guideCurves.length > 0
+        ? `
     ' Select guide curves
-    ${args.guideCurves.map((guide: string, i: number) => `
-    swModel.Extension.SelectByID2 "${guide}", "SKETCH", 0, 0, 0, True, 2, Nothing, 0`).join('')}` : ''}
+    ${args.guideCurves
+      .map(
+        (guide: string, _i: number) => `
+    swModel.Extension.SelectByID2 "${guide}", "SKETCH", 0, 0, 0, True, 2, Nothing, 0`
+      )
+      .join('')}`
+        : ''
+    }
     
     ' Create sweep
     Set swSweep = swFeatureMgr.CreateDefinition(swFeatureNameID_e.swFmSweep)
@@ -168,9 +200,13 @@ Sub CreateSweepFeature()
     swSweep.TwistAngle = ${args.twistAngle || 0} * 3.14159 / 180
     swSweep.MaintainTangency = True
     swSweep.AdvancedSmoothing = True
-    ${args.thinFeature ? `
+    ${
+      args.thinFeature
+        ? `
     swSweep.ThinFeature = True
-    swSweep.ThinWallThickness = ${args.thickness || 1} / 1000` : ''}
+    swSweep.ThinWallThickness = ${args.thickness || 1} / 1000`
+        : ''
+    }
     
     Set swFeature = swFeatureMgr.CreateFeature(swSweep)
     
@@ -195,13 +231,25 @@ Sub CreateLoftFeature()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select profiles
-    ${args.profiles.map((profile: string, i: number) => `
-    swModel.Extension.SelectByID2 "${profile}", "SKETCH", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 1, Nothing, 0`).join('')}
+    ${args.profiles
+      .map(
+        (profile: string, i: number) => `
+    swModel.Extension.SelectByID2 "${profile}", "SKETCH", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 1, Nothing, 0`
+      )
+      .join('')}
     
-    ${args.guideCurves && args.guideCurves.length > 0 ? `
+    ${
+      args.guideCurves && args.guideCurves.length > 0
+        ? `
     ' Select guide curves
-    ${args.guideCurves.map((guide: string) => `
-    swModel.Extension.SelectByID2 "${guide}", "SKETCH", 0, 0, 0, True, 2, Nothing, 0`).join('')}` : ''}
+    ${args.guideCurves
+      .map(
+        (guide: string) => `
+    swModel.Extension.SelectByID2 "${guide}", "SKETCH", 0, 0, 0, True, 2, Nothing, 0`
+      )
+      .join('')}`
+        : ''
+    }
     
     ' Create loft
     Set swLoft = swFeatureMgr.CreateDefinition(swFeatureNameID_e.swFmLoft)
@@ -209,9 +257,13 @@ Sub CreateLoftFeature()
     swLoft.Merge = True
     swLoft.Close = False
     swLoft.PreserveTangency = True
-    ${args.thinFeature ? `
+    ${
+      args.thinFeature
+        ? `
     swLoft.ThinFeature = True
-    swLoft.Thickness = ${args.thickness || 1} / 1000` : ''}
+    swLoft.Thickness = ${args.thickness || 1} / 1000`
+        : ''
+    }
     
     Set swFeature = swFeatureMgr.CreateFeature(swLoft)
     
@@ -235,12 +287,22 @@ Sub CreateBoundaryFeature()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select boundary curves in Direction 1
-    ${args.profiles.slice(0, Math.ceil(args.profiles.length/2)).map((profile: string, i: number) => `
-    swModel.Extension.SelectByID2 "${profile}", "SKETCH", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 1, Nothing, 0`).join('')}
+    ${args.profiles
+      .slice(0, Math.ceil(args.profiles.length / 2))
+      .map(
+        (profile: string, i: number) => `
+    swModel.Extension.SelectByID2 "${profile}", "SKETCH", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 1, Nothing, 0`
+      )
+      .join('')}
     
     ' Select boundary curves in Direction 2
-    ${args.profiles.slice(Math.ceil(args.profiles.length/2)).map((profile: string) => `
-    swModel.Extension.SelectByID2 "${profile}", "SKETCH", 0, 0, 0, True, 2, Nothing, 0`).join('')}
+    ${args.profiles
+      .slice(Math.ceil(args.profiles.length / 2))
+      .map(
+        (profile: string) => `
+    swModel.Extension.SelectByID2 "${profile}", "SKETCH", 0, 0, 0, True, 2, Nothing, 0`
+      )
+      .join('')}
     
     ' Create boundary surface/boss
     Set swFeature = swFeatureMgr.InsertBoundaryBoss2( _
@@ -251,11 +313,11 @@ Sub CreateBoundaryFeature()
         swFeature.Name = "Boundary_${Date.now()}"
         MsgBox "Boundary feature created: " & swFeature.Name
     End If
-End Sub`
+End Sub`,
       };
-      
+
       return templates[args.featureType] || 'Feature type not supported';
-    }
+    },
   },
 
   {
@@ -267,16 +329,18 @@ End Sub`
       direction1: z.object({
         spacing: z.number().describe('Spacing in mm'),
         instances: z.number(),
-        reverseDirection: z.boolean().optional()
+        reverseDirection: z.boolean().optional(),
       }),
-      direction2: z.object({
-        spacing: z.number().describe('Spacing in mm'),
-        instances: z.number(),
-        reverseDirection: z.boolean().optional()
-      }).optional(),
+      direction2: z
+        .object({
+          spacing: z.number().describe('Spacing in mm'),
+          instances: z.number(),
+          reverseDirection: z.boolean().optional(),
+        })
+        .optional(),
       axis: z.string().optional().describe('Axis for circular pattern'),
       angle: z.number().optional().describe('Total angle for circular pattern'),
-      seedPoint: z.array(z.number()).optional().describe('[x, y, z] for fill pattern')
+      seedPoint: z.array(z.number()).optional().describe('[x, y, z] for fill pattern'),
     }),
     handler: (args: any) => {
       const templates: Record<string, string> = {
@@ -295,8 +359,12 @@ Sub CreateLinearPattern()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select features to pattern
-    ${args.featureNames.map((name: string, i: number) => `
-    swModel.Extension.SelectByID2 "${name}", "BODYFEATURE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`).join('')}
+    ${args.featureNames
+      .map(
+        (name: string, i: number) => `
+    swModel.Extension.SelectByID2 "${name}", "BODYFEATURE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`
+      )
+      .join('')}
     
     ' Select direction references
     swModel.Extension.SelectByID2 "Right Plane", "PLANE", 0, 0, 0, True, 1, Nothing, 0
@@ -330,15 +398,19 @@ Sub CreateCircularPattern()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select features to pattern
-    ${args.featureNames.map((name: string, i: number) => `
-    swModel.Extension.SelectByID2 "${name}", "BODYFEATURE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`).join('')}
+    ${args.featureNames
+      .map(
+        (name: string, i: number) => `
+    swModel.Extension.SelectByID2 "${name}", "BODYFEATURE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`
+      )
+      .join('')}
     
     ' Select axis
     swModel.Extension.SelectByID2 "${args.axis || 'Axis1'}", "AXIS", 0, 0, 0, True, 1, Nothing, 0
     
     ' Create circular pattern
     Set swFeature = swFeatureMgr.FeatureCircularPattern5( _
-        ${args.direction1.instances}, ${(args.angle || 360) * Math.PI / 180}, _
+        ${args.direction1.instances}, ${((args.angle || 360) * Math.PI) / 180}, _
         False, "NULL", False, True, False, False)
     
     If Not swFeature Is Nothing Then
@@ -361,8 +433,12 @@ Sub CreateCurveDrivenPattern()
     Set swFeatureMgr = swModel.FeatureManager
     
     ' Select features to pattern
-    ${args.featureNames.map((name: string, i: number) => `
-    swModel.Extension.SelectByID2 "${name}", "BODYFEATURE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`).join('')}
+    ${args.featureNames
+      .map(
+        (name: string, i: number) => `
+    swModel.Extension.SelectByID2 "${name}", "BODYFEATURE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`
+      )
+      .join('')}
     
     ' Select curve
     swModel.Extension.SelectByID2 "Sketch_Curve", "SKETCH", 0, 0, 0, True, 1, Nothing, 0
@@ -377,11 +453,11 @@ Sub CreateCurveDrivenPattern()
         swFeature.Name = "CurvePattern_${Date.now()}"
         MsgBox "Curve driven pattern created: " & swFeature.Name
     End If
-End Sub`
+End Sub`,
       };
-      
+
       return templates[args.patternType] || 'Pattern type not supported';
-    }
+    },
   },
 
   {
@@ -394,7 +470,7 @@ End Sub`
       bendAngle: z.number().optional().describe('Bend angle in degrees'),
       kFactor: z.number().optional().default(0.5),
       reliefType: z.enum(['rectangular', 'obround', 'tear']).optional(),
-      reliefRatio: z.number().optional().default(0.5)
+      reliefRatio: z.number().optional().default(0.5),
     }),
     handler: (args: any) => {
       return `
@@ -421,30 +497,42 @@ Sub CreateSheetMetalFeature_${args.operation}()
         ${args.kFactor}, ${args.reliefRatio}, _
         ${args.reliefType === 'rectangular' ? '0' : args.reliefType === 'obround' ? '1' : '2'}
     
-    ${args.operation === 'base_flange' ? `
+    ${
+      args.operation === 'base_flange'
+        ? `
     ' Create base flange
     swModel.Extension.SelectByID2 "Sketch1", "SKETCH", 0, 0, 0, False, 0, Nothing, 0
     Set swFeature = swFeatureMgr.InsertSheetMetalBaseFlange2( _
         ${args.thickness / 1000}, False, ${(args.bendRadius || args.thickness) / 1000}, _
         0, ${args.kFactor}, True, False, True, _
-        0, 0, 0, False, 0, 0, 0, 0)` : ''}
+        0, 0, 0, False, 0, 0, 0, 0)`
+        : ''
+    }
     
-    ${args.operation === 'edge_flange' ? `
+    ${
+      args.operation === 'edge_flange'
+        ? `
     ' Create edge flange
     swModel.Extension.SelectByID2 "Edge1", "EDGE", 0, 0, 0, False, 0, Nothing, 0
     Set swFeature = swFeatureMgr.InsertSheetMetalEdgeFlange2( _
-        0, False, ${(args.bendAngle || 90) * Math.PI / 180}, _
+        0, False, ${((args.bendAngle || 90) * Math.PI) / 180}, _
         50 / 1000, 0, 0, ${(args.bendRadius || args.thickness) / 1000}, _
         0, 0, False, False, False, False, True, _
-        0, 0, 0, 0, 0)` : ''}
+        0, 0, 0, 0, 0)`
+        : ''
+    }
     
-    ${args.operation === 'hem' ? `
+    ${
+      args.operation === 'hem'
+        ? `
     ' Create hem
     swModel.Extension.SelectByID2 "Edge1", "EDGE", 0, 0, 0, False, 0, Nothing, 0
     Set swFeature = swFeatureMgr.InsertSheetMetalHem2( _
-        1, 1, False, ${args.thickness * 2 / 1000}, _
+        1, 1, False, ${(args.thickness * 2) / 1000}, _
         ${(args.bendRadius || args.thickness) / 1000}, 0, 0, _
-        0, 0, False, False, 0)` : ''}
+        0, 0, False, False, 0)`
+        : ''
+    }
     
     If Not swFeature Is Nothing Then
         swFeature.Name = "SheetMetal_${args.operation}_${Date.now()}"
@@ -453,7 +541,7 @@ Sub CreateSheetMetalFeature_${args.operation}()
         MsgBox "Failed to create sheet metal feature"
     End If
 End Sub`;
-    }
+    },
   },
 
   {
@@ -465,7 +553,7 @@ End Sub`;
       distance: z.number().optional().describe('Distance in mm'),
       angle: z.number().optional().describe('Angle in degrees'),
       offsetDistance: z.number().optional().describe('Offset distance in mm'),
-      thickenDepth: z.number().optional().describe('Thicken depth in mm')
+      thickenDepth: z.number().optional().describe('Thicken depth in mm'),
     }),
     handler: (args: any) => {
       return `
@@ -482,44 +570,68 @@ Sub CreateSurfaceFeature_${args.surfaceType}()
     
     Set swFeatureMgr = swModel.FeatureManager
     
-    ${args.surfaceType === 'extrude' ? `
+    ${
+      args.surfaceType === 'extrude'
+        ? `
     ' Surface extrude
     swModel.Extension.SelectByID2 "${args.sketches[0]}", "SKETCH", 0, 0, 0, False, 0, Nothing, 0
     Set swFeature = swFeatureMgr.FeatureExtruRefSurface2( _
         True, False, False, 0, 0, ${(args.distance || 10) / 1000}, 0, _
-        False, False, False, False, 0, 0, False, False, False, False, False)` : ''}
+        False, False, False, False, 0, 0, False, False, False, False, False)`
+        : ''
+    }
     
-    ${args.surfaceType === 'revolve' ? `
+    ${
+      args.surfaceType === 'revolve'
+        ? `
     ' Surface revolve
     swModel.Extension.SelectByID2 "${args.sketches[0]}", "SKETCH", 0, 0, 0, False, 0, Nothing, 0
     swModel.Extension.SelectByID2 "Axis1", "AXIS", 0, 0, 0, True, 1, Nothing, 0
     Set swFeature = swFeatureMgr.FeatureRevolve2( _
         True, True, False, False, False, False, 0, 0, _
-        ${(args.angle || 360) * Math.PI / 180}, 0, False, False, 0, 0, 0, 0, 0, True, True, True)` : ''}
+        ${((args.angle || 360) * Math.PI) / 180}, 0, False, False, 0, 0, 0, 0, 0, True, True, True)`
+        : ''
+    }
     
-    ${args.surfaceType === 'offset' ? `
+    ${
+      args.surfaceType === 'offset'
+        ? `
     ' Offset surface
     swModel.Extension.SelectByID2 "Surface1", "SURFACE", 0, 0, 0, False, 0, Nothing, 0
     Set swFeature = swFeatureMgr.InsertOffsetSurface( _
-        ${(args.offsetDistance || 5) / 1000}, False)` : ''}
+        ${(args.offsetDistance || 5) / 1000}, False)`
+        : ''
+    }
     
-    ${args.surfaceType === 'thicken' ? `
+    ${
+      args.surfaceType === 'thicken'
+        ? `
     ' Thicken surface
     swModel.Extension.SelectByID2 "Surface1", "SURFACE", 0, 0, 0, False, 0, Nothing, 0
     Set swFeature = swFeatureMgr.FeatureThicken( _
-        ${(args.thickenDepth || 2) / 1000}, 0, 0, False, True, True, True)` : ''}
+        ${(args.thickenDepth || 2) / 1000}, 0, 0, False, True, True, True)`
+        : ''
+    }
     
-    ${args.surfaceType === 'knit' ? `
+    ${
+      args.surfaceType === 'knit'
+        ? `
     ' Knit surfaces
-    ${args.sketches.map((sketch: string, i: number) => `
-    swModel.Extension.SelectByID2 "${sketch}", "SURFACE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`).join('')}
-    Set swFeature = swFeatureMgr.InsertKnitSurface2(0.0001, True, False, True)` : ''}
+    ${args.sketches
+      .map(
+        (sketch: string, i: number) => `
+    swModel.Extension.SelectByID2 "${sketch}", "SURFACE", 0, 0, 0, ${i === 0 ? 'False' : 'True'}, 0, Nothing, 0`
+      )
+      .join('')}
+    Set swFeature = swFeatureMgr.InsertKnitSurface2(0.0001, True, False, True)`
+        : ''
+    }
     
     If Not swFeature Is Nothing Then
         swFeature.Name = "Surface_${args.surfaceType}_${Date.now()}"
         MsgBox "Surface created: " & swFeature.Name
     End If
 End Sub`;
-    }
-  }
+    },
+  },
 ];

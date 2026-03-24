@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { SolidWorksAPI } from '../solidworks/api.js';
 
 /**
  * VBA Generation for File Management and PDM Operations
@@ -12,15 +11,20 @@ export const fileManagementVBATools = [
     description: 'Generate VBA for batch file operations',
     inputSchema: z.object({
       operation: z.enum([
-        'open_all', 'save_all', 'export_all', 'convert_format',
-        'update_references', 'pack_and_go', 'rename_files'
+        'open_all',
+        'save_all',
+        'export_all',
+        'convert_format',
+        'update_references',
+        'pack_and_go',
+        'rename_files',
       ]),
       sourcePath: z.string().describe('Source folder path'),
       destinationPath: z.string().optional().describe('Destination folder path'),
       fileFilter: z.string().optional().describe('File filter (e.g., "*.sldprt")'),
       exportFormat: z.enum(['step', 'iges', 'stl', 'pdf', 'dwg', 'parasolid']).optional(),
       includeSubfolders: z.boolean().optional().default(false),
-      options: z.record(z.any()).optional()
+      options: z.record(z.any()).optional(),
     }),
     handler: (args: any) => {
       const operations: Record<string, string> = {
@@ -60,13 +64,17 @@ Sub BatchOpenFiles()
         End If
     Next file
     
-    ${args.includeSubfolders ? `
+    ${
+      args.includeSubfolders
+        ? `
     ' Process subfolders
     Dim subfolder As Object
     For Each subfolder In folder.SubFolders
         ' Recursive call for subfolders
         ' Add recursive processing logic here
-    Next subfolder` : ''}
+    Next subfolder`
+        : ''
+    }
     
     MsgBox "Batch open complete. Processed " & processedCount & " files"
 End Sub
@@ -102,8 +110,8 @@ Sub BatchExportFiles()
     Set folder = fso.GetFolder("${args.sourcePath}")
     
     ' Create destination folder if needed
-    If Not fso.FolderExists("${args.destinationPath || args.sourcePath + '\\Exported'}") Then
-        fso.CreateFolder("${args.destinationPath || args.sourcePath + '\\Exported'}")
+    If Not fso.FolderExists("${args.destinationPath || `${args.sourcePath}\\Exported`}") Then
+        fso.CreateFolder("${args.destinationPath || `${args.sourcePath}\\Exported`}")
     End If
     
     exportCount = 0
@@ -120,24 +128,36 @@ Sub BatchExportFiles()
             
             If Not swModel Is Nothing Then
                 ' Generate export path
-                exportPath = "${args.destinationPath || args.sourcePath + '\\Exported'}\\" & _
+                exportPath = "${args.destinationPath || `${args.sourcePath}\\Exported`}\\" & _
                     fso.GetBaseName(file.Name) & ".${args.exportFormat || 'step'}"
                 
                 ' Export based on format
-                ${args.exportFormat === 'step' ? `
+                ${
+                  args.exportFormat === 'step'
+                    ? `
                 swModel.Extension.SaveAs3 exportPath, 0, _
                     swSaveAsOptions_e.swSaveAsOptions_Silent, _
-                    Nothing, Nothing, errors, warnings` : ''}
-                ${args.exportFormat === 'stl' ? `
+                    Nothing, Nothing, errors, warnings`
+                    : ''
+                }
+                ${
+                  args.exportFormat === 'stl'
+                    ? `
                 swModel.Extension.SaveAs3 exportPath, 0, _
                     swSaveAsOptions_e.swSaveAsOptions_Silent, _
-                    Nothing, Nothing, errors, warnings` : ''}
-                ${args.exportFormat === 'pdf' ? `
+                    Nothing, Nothing, errors, warnings`
+                    : ''
+                }
+                ${
+                  args.exportFormat === 'pdf'
+                    ? `
                 Dim swExportPDFData As SldWorks.ExportPdfData
                 Set swExportPDFData = swApp.GetExportFileData(swExportDataFileType_e.swExportPdfData)
                 swModel.Extension.SaveAs3 exportPath, 0, _
                     swSaveAsOptions_e.swSaveAsOptions_Silent, _
-                    swExportPDFData, Nothing, errors, warnings` : ''}
+                    swExportPDFData, Nothing, errors, warnings`
+                    : ''
+                }
                 
                 exportCount = exportCount + 1
                 Debug.Print "Exported: " & exportPath
@@ -190,7 +210,7 @@ Sub BatchPackAndGo()
                 
                 ' Set destination
                 Dim destFolder As String
-                destFolder = "${args.destinationPath || args.sourcePath + '\\PackAndGo'}\\" & _
+                destFolder = "${args.destinationPath || `${args.sourcePath}\\PackAndGo`}\\" & _
                     fso.GetBaseName(file.Name)
                 
                 If Not fso.FolderExists(destFolder) Then
@@ -214,11 +234,11 @@ Sub BatchPackAndGo()
     Next file
     
     MsgBox "Pack and Go complete. Processed " & packCount & " assemblies"
-End Sub`
+End Sub`,
       };
 
       return operations[args.operation] || operations.open_all;
-    }
+    },
   },
 
   {
@@ -226,15 +246,19 @@ End Sub`
     description: 'Generate VBA for managing custom properties',
     inputSchema: z.object({
       operation: z.enum(['add', 'modify', 'delete', 'copy', 'export', 'import']),
-      properties: z.array(z.object({
-        name: z.string(),
-        value: z.string(),
-        type: z.enum(['text', 'date', 'number', 'yesno']).optional(),
-        configuration: z.string().optional()
-      })).optional(),
+      properties: z
+        .array(
+          z.object({
+            name: z.string(),
+            value: z.string(),
+            type: z.enum(['text', 'date', 'number', 'yesno']).optional(),
+            configuration: z.string().optional(),
+          })
+        )
+        .optional(),
       sourcePath: z.string().optional(),
       templatePath: z.string().optional(),
-      exportFormat: z.enum(['excel', 'csv', 'xml']).optional()
+      exportFormat: z.enum(['excel', 'csv', 'xml']).optional(),
     }),
     handler: (args: any) => {
       return `
@@ -255,17 +279,28 @@ Sub ManageCustomProperties_${args.operation}()
         Exit Sub
     End If
     
-    ${args.operation === 'add' || args.operation === 'modify' ? `
+    ${
+      args.operation === 'add' || args.operation === 'modify'
+        ? `
     ' Add/Modify properties
-    ${args.properties ? args.properties.map((prop: any) => `
+    ${
+      args.properties
+        ? args.properties
+            .map(
+              (prop: any) => `
     ' Get property manager for configuration
     Set swCustPropMgr = swModel.Extension.CustomPropertyManager("${prop.configuration || ''}")
     
     ' Determine property type
-    ${prop.type === 'date' ? 'propType = swCustomInfoType_e.swCustomInfoDate' :
-      prop.type === 'number' ? 'propType = swCustomInfoType_e.swCustomInfoNumber' :
-      prop.type === 'yesno' ? 'propType = swCustomInfoType_e.swCustomInfoYesOrNo' :
-      'propType = swCustomInfoType_e.swCustomInfoText'}
+    ${
+      prop.type === 'date'
+        ? 'propType = swCustomInfoType_e.swCustomInfoDate'
+        : prop.type === 'number'
+          ? 'propType = swCustomInfoType_e.swCustomInfoNumber'
+          : prop.type === 'yesno'
+            ? 'propType = swCustomInfoType_e.swCustomInfoYesOrNo'
+            : 'propType = swCustomInfoType_e.swCustomInfoText'
+    }
     
     ' Add or modify property
     bRet = swCustPropMgr.Add3( _
@@ -276,23 +311,43 @@ Sub ManageCustomProperties_${args.operation}()
     
     If bRet Then
         Debug.Print "${args.operation === 'add' ? 'Added' : 'Modified'} property: ${prop.name} = ${prop.value}"
-    End If`).join('\n    ') : ''}
+    End If`
+            )
+            .join('\n    ')
+        : ''
+    }
     
-    MsgBox "Properties ${args.operation === 'add' ? 'added' : 'modified'} successfully"` : ''}
+    MsgBox "Properties ${args.operation === 'add' ? 'added' : 'modified'} successfully"`
+        : ''
+    }
     
-    ${args.operation === 'delete' ? `
+    ${
+      args.operation === 'delete'
+        ? `
     ' Delete properties
     Set swCustPropMgr = swModel.Extension.CustomPropertyManager("")
     
-    ${args.properties ? args.properties.map((prop: any) => `
+    ${
+      args.properties
+        ? args.properties
+            .map(
+              (prop: any) => `
     bRet = swCustPropMgr.Delete2("${prop.name}")
     If bRet Then
         Debug.Print "Deleted property: ${prop.name}"
-    End If`).join('\n    ') : ''}
+    End If`
+            )
+            .join('\n    ')
+        : ''
+    }
     
-    MsgBox "Properties deleted"` : ''}
+    MsgBox "Properties deleted"`
+        : ''
+    }
     
-    ${args.operation === 'export' ? `
+    ${
+      args.operation === 'export'
+        ? `
     ' Export properties to Excel
     Dim xlApp As Object
     Dim xlBook As Object
@@ -328,11 +383,19 @@ Sub ManageCustomProperties_${args.operation}()
     
     xlSheet.Columns.AutoFit
     
-    ${args.sourcePath ? `
+    ${
+      args.sourcePath
+        ? `
     xlBook.SaveAs "${args.sourcePath}"
-    MsgBox "Properties exported to: ${args.sourcePath}"` : ''}` : ''}
+    MsgBox "Properties exported to: ${args.sourcePath}"`
+        : ''
+    }`
+        : ''
+    }
     
-    ${args.operation === 'copy' ? `
+    ${
+      args.operation === 'copy'
+        ? `
     ' Copy properties from another file
     Dim swSourceModel As SldWorks.ModelDoc2
     Dim swSourceCustPropMgr As SldWorks.CustomPropertyManager
@@ -365,25 +428,24 @@ Sub ManageCustomProperties_${args.operation}()
         
         swApp.CloseDoc swSourceModel.GetPathName
         MsgBox "Properties copied from source file"
-    End If` : ''}
-End Sub`;
+    End If`
+        : ''
     }
+End Sub`;
+    },
   },
 
   {
     name: 'vba_pdm_operations',
     description: 'Generate VBA for PDM vault operations',
     inputSchema: z.object({
-      operation: z.enum([
-        'check_in', 'check_out', 'get_latest', 'add_file',
-        'change_state', 'search', 'copy_tree'
-      ]),
+      operation: z.enum(['check_in', 'check_out', 'get_latest', 'add_file', 'change_state', 'search', 'copy_tree']),
       vaultName: z.string(),
       filePath: z.string().optional(),
       comment: z.string().optional(),
       stateName: z.string().optional(),
       searchCriteria: z.record(z.string()).optional(),
-      includeChildren: z.boolean().optional().default(true)
+      includeChildren: z.boolean().optional().default(true),
     }),
     handler: (args: any) => {
       return `
@@ -406,7 +468,9 @@ Sub PDMOperation_${args.operation}()
         Exit Sub
     End If
     
-    ${args.operation === 'check_out' ? `
+    ${
+      args.operation === 'check_out'
+        ? `
     ' Check out file
     Set pdmFolder = pdmVault.GetFolderFromPath(Left("${args.filePath}", InStrRev("${args.filePath}", "\\")))
     Set pdmFile = pdmFolder.GetFile(Mid("${args.filePath}", InStrRev("${args.filePath}", "\\") + 1))
@@ -421,9 +485,13 @@ Sub PDMOperation_${args.operation}()
         End If
     Else
         MsgBox "File not found in vault"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'check_in' ? `
+    ${
+      args.operation === 'check_in'
+        ? `
     ' Check in file
     Set pdmFolder = pdmVault.GetFolderFromPath(Left("${args.filePath}", InStrRev("${args.filePath}", "\\")))
     Set pdmFile = pdmFolder.GetFile(Mid("${args.filePath}", InStrRev("${args.filePath}", "\\") + 1))
@@ -437,9 +505,13 @@ Sub PDMOperation_${args.operation}()
         Else
             MsgBox "File is not checked out"
         End If
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'get_latest' ? `
+    ${
+      args.operation === 'get_latest'
+        ? `
     ' Get latest version
     Set pdmFolder = pdmVault.GetFolderFromPath(Left("${args.filePath}", InStrRev("${args.filePath}", "\\")))
     Set pdmFile = pdmFolder.GetFile(Mid("${args.filePath}", InStrRev("${args.filePath}", "\\") + 1))
@@ -447,9 +519,13 @@ Sub PDMOperation_${args.operation}()
     If Not pdmFile Is Nothing Then
         pdmFile.GetFileCopy 0
         MsgBox "Got latest version of: " & pdmFile.Name
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'change_state' ? `
+    ${
+      args.operation === 'change_state'
+        ? `
     ' Change workflow state
     Set pdmFolder = pdmVault.GetFolderFromPath(Left("${args.filePath}", InStrRev("${args.filePath}", "\\")))
     Set pdmFile = pdmFolder.GetFile(Mid("${args.filePath}", InStrRev("${args.filePath}", "\\") + 1))
@@ -465,15 +541,27 @@ Sub PDMOperation_${args.operation}()
         Else
             MsgBox "State not found: ${args.stateName}"
         End If
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'search' ? `
+    ${
+      args.operation === 'search'
+        ? `
     ' Search vault
     Set pdmSearch = pdmVault.CreateSearch
     
     ' Set search criteria
-    ${args.searchCriteria ? Object.entries(args.searchCriteria).map(([key, value]) => `
-    pdmSearch.SetToken EdmSearchToken_e.${key}, "${value}"`).join('\n    ') : ''}
+    ${
+      args.searchCriteria
+        ? Object.entries(args.searchCriteria)
+            .map(
+              ([key, value]) => `
+    pdmSearch.SetToken EdmSearchToken_e.${key}, "${value}"`
+            )
+            .join('\n    ')
+        : ''
+    }
     
     ' Execute search
     Set pdmSearchResult = pdmSearch.GetFirstResult
@@ -486,7 +574,9 @@ Sub PDMOperation_${args.operation}()
         Set pdmSearchResult = pdmSearch.GetNextResult
     Wend
     
-    MsgBox results` : ''}
+    MsgBox results`
+        : ''
+    }
     
     ' Logout
     pdmVault.Logout
@@ -507,7 +597,7 @@ Private Function GetDocumentType(filePath As String) As Integer
         GetDocumentType = 0 ' Unknown
     End If
 End Function`;
-    }
+    },
   },
 
   {
@@ -516,13 +606,17 @@ End Function`;
     inputSchema: z.object({
       operation: z.enum(['create', 'update', 'export', 'import', 'link_excel']),
       tableName: z.string(),
-      parameters: z.array(z.object({
-        name: z.string(),
-        type: z.enum(['dimension', 'feature', 'component', 'custom_property']),
-        configurations: z.record(z.any()).optional()
-      })).optional(),
+      parameters: z
+        .array(
+          z.object({
+            name: z.string(),
+            type: z.enum(['dimension', 'feature', 'component', 'custom_property']),
+            configurations: z.record(z.any()).optional(),
+          })
+        )
+        .optional(),
       excelPath: z.string().optional(),
-      linkToExternal: z.boolean().optional()
+      linkToExternal: z.boolean().optional(),
     }),
     handler: (args: any) => {
       return `
@@ -544,7 +638,9 @@ Sub ManageDesignTable_${args.operation}()
         Exit Sub
     End If
     
-    ${args.operation === 'create' ? `
+    ${
+      args.operation === 'create'
+        ? `
     ' Create design table
     Set xlApp = CreateObject("Excel.Application")
     Set xlBook = xlApp.Workbooks.Add
@@ -553,14 +649,30 @@ Sub ManageDesignTable_${args.operation}()
     ' Set up headers
     xlSheet.Cells(1, 1).Value = "Configuration"
     
-    ${args.parameters ? args.parameters.map((param: any, i: number) => `
+    ${
+      args.parameters
+        ? args.parameters
+            .map(
+              (param: any, i: number) => `
     ' Add parameter header
     xlSheet.Cells(1, ${i + 2}).Value = "${param.name}@${param.type === 'dimension' ? 'Sketch1' : param.type === 'feature' ? 'Feature' : 'CustomProperty'}"
     
     ' Add configuration values
-    ${param.configurations ? Object.entries(param.configurations).map(([config, value], j) => `
+    ${
+      param.configurations
+        ? Object.entries(param.configurations)
+            .map(
+              ([config, value], j) => `
     xlSheet.Cells(${j + 2}, 1).Value = "${config}"
-    xlSheet.Cells(${j + 2}, ${i + 2}).Value = "${value}"`).join('\n    ') : ''}`).join('\n    ') : ''}
+    xlSheet.Cells(${j + 2}, ${i + 2}).Value = "${value}"`
+            )
+            .join('\n    ')
+        : ''
+    }`
+            )
+            .join('\n    ')
+        : ''
+    }
     
     ' Save Excel file
     Dim tempPath As String
@@ -577,9 +689,13 @@ Sub ManageDesignTable_${args.operation}()
     
     If Not swDesignTable Is Nothing Then
         MsgBox "Design table created: ${args.tableName}"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'update' ? `
+    ${
+      args.operation === 'update'
+        ? `
     ' Update existing design table
     Set swDesignTable = swModel.GetDesignTable
     
@@ -593,19 +709,35 @@ Sub ManageDesignTable_${args.operation}()
         Set xlSheet = xlBook.ActiveSheet
         
         ' Update values
-        ${args.parameters ? args.parameters.map((param: any) => `
+        ${
+          args.parameters
+            ? args.parameters
+                .map(
+                  (param: any) => `
         ' Find and update parameter column
         For j = 1 To xlSheet.UsedRange.Columns.Count
             If xlSheet.Cells(1, j).Value = "${param.name}@Sketch1" Then
-                ${param.configurations ? Object.entries(param.configurations).map(([config, value], i) => `
+                ${
+                  param.configurations
+                    ? Object.entries(param.configurations)
+                        .map(
+                          ([config, value], _i) => `
                 ' Update configuration value
                 For i = 2 To xlSheet.UsedRange.Rows.Count
                     If xlSheet.Cells(i, 1).Value = "${config}" Then
                         xlSheet.Cells(i, j).Value = "${value}"
                     End If
-                Next i`).join('\n                ') : ''}
+                Next i`
+                        )
+                        .join('\n                ')
+                    : ''
+                }
             End If
-        Next j`).join('\n        ') : ''}
+        Next j`
+                )
+                .join('\n        ')
+            : ''
+        }
         
         ' Close design table
         swDesignTable.UpdateModel swDesignTableUpdateOptions_e.swUpdateDesignTableAll
@@ -613,9 +745,13 @@ Sub ManageDesignTable_${args.operation}()
         MsgBox "Design table updated"
     Else
         MsgBox "No design table found"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'export' ? `
+    ${
+      args.operation === 'export'
+        ? `
     ' Export design table
     Set swDesignTable = swModel.GetDesignTable
     
@@ -633,9 +769,13 @@ Sub ManageDesignTable_${args.operation}()
         swDesignTable.UpdateModel swDesignTableUpdateOptions_e.swUpdateDesignTableAll
         
         MsgBox "Design table exported to: ${args.excelPath || 'C:\\Temp\\ExportedDesignTable.xlsx'}"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
-    ${args.operation === 'link_excel' ? `
+    ${
+      args.operation === 'link_excel'
+        ? `
     ' Link to external Excel file
     Set swDesignTable = swModel.GetDesignTable
     
@@ -652,10 +792,12 @@ Sub ManageDesignTable_${args.operation}()
     
     If Not swDesignTable Is Nothing Then
         MsgBox "Design table linked to: ${args.excelPath}"
-    End If` : ''}
+    End If`
+        : ''
+    }
     
     swModel.EditRebuild3
 End Sub`;
-    }
-  }
+    },
+  },
 ];

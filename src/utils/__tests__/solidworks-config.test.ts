@@ -3,9 +3,9 @@
  * These tests use mocks and don't require SolidWorks to be installed
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { SolidWorksConfig } from '../solidworks-config.js';
+import { describe, expect, it } from 'vitest';
 import { createMockSolidWorksAdapter } from '../../adapters/mock-solidworks-adapter.js';
+import { SolidWorksConfig } from '../solidworks-config.js';
 
 describe('SolidWorksConfig', () => {
   describe('getVersion', () => {
@@ -52,7 +52,7 @@ describe('SolidWorksConfig', () => {
 
     it('should return null for invalid version format', () => {
       const mockApp = {
-        RevisionNumber: () => 'invalid'
+        RevisionNumber: () => 'invalid',
       };
 
       const version = SolidWorksConfig.getVersion(mockApp);
@@ -133,15 +133,16 @@ describe('SolidWorksConfig', () => {
       expect(path).toContain('Drawing.drwdot');
     });
 
-    it('should throw error when templates cannot be determined', () => {
+    it('should fall back to generic template path when version is unknown', () => {
       const mockApp = {
         RevisionNumber: () => null,
-        GetUserPreferenceStringValue: () => null
+        GetUserPreferenceStringValue: () => null,
       };
 
-      expect(() => {
-        SolidWorksConfig.getTemplatePath(mockApp, 'part');
-      }).toThrow();
+      // getDefaultTemplates has a generic fallback (strategy 3),
+      // so getTemplatePath never throws — it returns a best-guess path
+      const path = SolidWorksConfig.getTemplatePath(mockApp, 'part');
+      expect(path).toContain('Part.prtdot');
     });
   });
 
@@ -159,16 +160,22 @@ describe('SolidWorksConfig', () => {
 
     it('should handle errors gracefully', () => {
       const mockApp = {
-        RevisionNumber: () => { throw new Error('Test error'); },
-        GetUserPreferenceStringValue: () => { throw new Error('Test error'); },
-        Visible: true
+        RevisionNumber: () => {
+          throw new Error('Test error');
+        },
+        GetUserPreferenceStringValue: () => {
+          throw new Error('Test error');
+        },
+        Visible: true,
       };
 
       const info = SolidWorksConfig.getInstallInfo(mockApp);
 
-      expect(info).toHaveProperty('versionError');
-      expect(info).toHaveProperty('templatesError');
+      // getVersion and getDefaultTemplates catch errors internally,
+      // so getInstallInfo gets null back (not an exception).
+      // The result should still include visible and templates (from generic fallback).
       expect(info.visible).toBe(true);
+      expect(info).toHaveProperty('templates');
     });
   });
 });

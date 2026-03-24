@@ -288,22 +288,22 @@ export const ConversionFactors = {
   CentimetersToMeters: 0.01,
   InchesToMeters: 0.0254,
   FeetToMeters: 0.3048,
-  
+
   // Length conversions from meters
   MetersToMillimeters: 1000,
   MetersToCentimeters: 100,
   MetersToInches: 39.3701,
   MetersToFeet: 3.28084,
-  
+
   // Angle conversions
   DegreesToRadians: Math.PI / 180,
   RadiansToDegrees: 180 / Math.PI,
-  
+
   // Mass conversions to kilograms
   GramsToKilograms: 0.001,
   PoundsToKilograms: 0.453592,
   OuncesToKilograms: 0.0283495,
-  
+
   // Mass conversions from kilograms
   KilogramsToGrams: 1000,
   KilogramsToPounds: 2.20462,
@@ -373,12 +373,12 @@ export const PaperDimensions: Record<SwPaperSize, { width: number; height: numbe
   [SwPaperSize.DLandscape]: { width: 0.8636, height: 0.5588 },
   [SwPaperSize.E]: { width: 0.8636, height: 1.0922 },
   [SwPaperSize.ELandscape]: { width: 1.0922, height: 0.8636 },
-  [SwPaperSize.A4]: { width: 0.210, height: 0.297 },
-  [SwPaperSize.A4Landscape]: { width: 0.297, height: 0.210 },
-  [SwPaperSize.A3]: { width: 0.297, height: 0.420 },
-  [SwPaperSize.A3Landscape]: { width: 0.420, height: 0.297 },
-  [SwPaperSize.A2]: { width: 0.420, height: 0.594 },
-  [SwPaperSize.A2Landscape]: { width: 0.594, height: 0.420 },
+  [SwPaperSize.A4]: { width: 0.21, height: 0.297 },
+  [SwPaperSize.A4Landscape]: { width: 0.297, height: 0.21 },
+  [SwPaperSize.A3]: { width: 0.297, height: 0.42 },
+  [SwPaperSize.A3Landscape]: { width: 0.42, height: 0.297 },
+  [SwPaperSize.A2]: { width: 0.42, height: 0.594 },
+  [SwPaperSize.A2Landscape]: { width: 0.594, height: 0.42 },
   [SwPaperSize.A1]: { width: 0.594, height: 0.841 },
   [SwPaperSize.A1Landscape]: { width: 0.841, height: 0.594 },
   [SwPaperSize.A0]: { width: 0.841, height: 1.189 },
@@ -436,28 +436,24 @@ export class SwConstants {
    */
   static getDocumentTypeFromExtension(filepath: string): SwDocumentType {
     const ext = filepath.toLowerCase().split('.').pop() || '';
-    
-    if (DocumentExtensions.Part.some(e => ext.includes(e.substring(1)))) {
+
+    if (DocumentExtensions.Part.some((e) => ext.includes(e.substring(1)))) {
       return SwDocumentType.Part;
     }
-    if (DocumentExtensions.Assembly.some(e => ext.includes(e.substring(1)))) {
+    if (DocumentExtensions.Assembly.some((e) => ext.includes(e.substring(1)))) {
       return SwDocumentType.Assembly;
     }
-    if (DocumentExtensions.Drawing.some(e => ext.includes(e.substring(1)))) {
+    if (DocumentExtensions.Drawing.some((e) => ext.includes(e.substring(1)))) {
       return SwDocumentType.Drawing;
     }
-    
+
     return SwDocumentType.None;
   }
 
   /**
    * Convert units
    */
-  static convertLength(
-    value: number,
-    from: SwLengthUnit,
-    to: SwLengthUnit
-  ): number {
+  static convertLength(value: number, from: SwLengthUnit, to: SwLengthUnit): number {
     // Convert to meters first
     let meters = value;
     switch (from) {
@@ -474,7 +470,7 @@ export class SwConstants {
         meters = value * ConversionFactors.FeetToMeters;
         break;
     }
-    
+
     // Convert from meters to target unit
     switch (to) {
       case SwLengthUnit.Millimeters:
@@ -493,22 +489,18 @@ export class SwConstants {
   /**
    * Convert angle units
    */
-  static convertAngle(
-    value: number,
-    from: SwAngleUnit,
-    to: SwAngleUnit
-  ): number {
+  static convertAngle(value: number, from: SwAngleUnit, to: SwAngleUnit): number {
     // Convert to radians first
     let radians = value;
     if (from === SwAngleUnit.Degrees) {
       radians = value * ConversionFactors.DegreesToRadians;
     }
-    
+
     // Convert from radians to target unit
     if (to === SwAngleUnit.Degrees) {
       return radians * ConversionFactors.RadiansToDegrees;
     }
-    
+
     return radians;
   }
 }

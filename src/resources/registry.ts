@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod';
-import { SolidWorksResource } from './base.js';
+import type { SolidWorksResource } from './base.js';
 
 export interface ResourceDefinition {
   type: string;
@@ -76,7 +76,7 @@ class ResourceRegistry {
       if (error instanceof z.ZodError) {
         return {
           valid: false,
-          errors: error.errors
+          errors: error.errors,
         };
       }
       return { valid: false, errors: [{ message: 'Unknown validation error' }] };

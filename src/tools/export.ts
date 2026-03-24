@@ -1,7 +1,7 @@
+import { existsSync } from 'node:fs';
+import { basename, extname, join } from 'node:path';
 import { z } from 'zod';
-import { SolidWorksAPI } from '../solidworks/api.js';
-import { basename, extname, join } from 'path';
-import { existsSync } from 'fs';
+import type { SolidWorksAPI } from '../solidworks/api.js';
 
 export const exportTools = [
   {
@@ -9,14 +9,16 @@ export const exportTools = [
     description: 'Export the current model to various formats',
     inputSchema: z.object({
       outputPath: z.string().describe('Output file path (extension determines format)'),
-      format: z.enum(['step', 'iges', 'stl', 'pdf', 'dxf', 'dwg']).optional()
+      format: z
+        .enum(['step', 'iges', 'stl', 'pdf', 'dxf', 'dwg'])
+        .optional()
         .describe('Export format (if not specified, uses file extension)'),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         // Determine format from extension if not specified
         const format = args.format || extname(args.outputPath).slice(1).toLowerCase();
-        
+
         // Try to export
         try {
           swApi.exportFile(args.outputPath, format);
@@ -27,7 +29,7 @@ export const exportTools = [
           }
           throw e;
         }
-        
+
         // Verify file was created
         if (existsSync(args.outputPath)) {
           return `Exported to ${format.toUpperCase()}: ${args.outputPath}`;
@@ -44,25 +46,24 @@ export const exportTools = [
       }
     },
   },
-  
+
   {
     name: 'batch_export',
     description: 'Export multiple configurations or files to a format',
     inputSchema: z.object({
       format: z.enum(['step', 'iges', 'stl', 'pdf', 'dxf', 'dwg']),
       outputDir: z.string().describe('Output directory'),
-      configurations: z.array(z.string()).optional()
-        .describe('List of configurations to export (if applicable)'),
+      configurations: z.array(z.string()).optional().describe('List of configurations to export (if applicable)'),
       prefix: z.string().optional().describe('Prefix for output files'),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
-        
+
         const exported: string[] = [];
         const modelName = basename(model.GetPathName(), extname(model.GetPathName()));
-        
+
         if (args.configurations && args.configurations.length > 0) {
           // Export each configuration
           for (const config of args.configurations) {
@@ -79,14 +80,14 @@ export const exportTools = [
           swApi.exportFile(outputPath, args.format);
           exported.push(outputPath);
         }
-        
+
         return `Exported ${exported.length} file(s):\n${exported.join('\n')}`;
       } catch (error) {
         return `Failed to batch export: ${error}`;
       }
     },
   },
-  
+
   {
     name: 'export_with_options',
     description: 'Export with specific format options',
@@ -104,13 +105,13 @@ export const exportTools = [
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
-        
+
         // Set export options based on format
         if (args.format === 'stl' && args.options.quality) {
           const qualityMap = { coarse: 1, fine: 10, custom: 5 };
           model.Extension.SetUserPreferenceInteger(8, 0, qualityMap[args.options.quality as keyof typeof qualityMap]);
         }
-        
+
         swApi.exportFile(args.outputPath, args.format);
         return `Exported with options to: ${args.outputPath}`;
       } catch (error) {
@@ -118,7 +119,7 @@ export const exportTools = [
       }
     },
   },
-  
+
   {
     name: 'capture_screenshot',
     description: 'Capture a screenshot of the current model view',
@@ -131,21 +132,21 @@ export const exportTools = [
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
-        
+
         const modelView = model.ActiveView;
         if (!modelView) throw new Error('No active view');
-        
+
         // Determine the format from file extension
         const ext = args.outputPath.toLowerCase().split('.').pop();
         let success = false;
-        
+
         if (ext === 'bmp') {
           // Use SaveBMP for bitmap format
           success = model.SaveBMP(args.outputPath, args.width || 1920, args.height || 1080);
         } else {
           // Try using ViewZoomtofit first to ensure proper view
           model.ViewZoomtofit2();
-          
+
           // For other formats, try Extension.SaveAs with specific format
           try {
             if (ext === 'png' || ext === 'jpg' || ext === 'jpeg') {
@@ -161,31 +162,35 @@ export const exportTools = [
                 return `Screenshot saved as BMP (format ${ext} not directly supported): ${args.outputPath}`;
               }
             }
-          } catch (e) {
+          } catch (_e) {
             // Final fallback to SaveBMP
-            success = model.SaveBMP(args.outputPath.replace(/\.[^.]+$/, '.bmp'), args.width || 1920, args.height || 1080);
+            success = model.SaveBMP(
+              args.outputPath.replace(/\.[^.]+$/, '.bmp'),
+              args.width || 1920,
+              args.height || 1080
+            );
             if (success) {
               return `Screenshot saved as BMP (other formats failed): ${args.outputPath.replace(/\.[^.]+$/, '.bmp')}`;
             }
           }
         }
-        
+
         // Check if file was created even if success is false
         if (!success) {
           // Check if file exists anyway
           if (existsSync(args.outputPath)) {
             return `Screenshot saved to: ${args.outputPath} (operation reported failure but file exists)`;
           }
-          
+
           // Check for BMP fallback
           const bmpPath = args.outputPath.replace(/\.[^.]+$/, '.bmp');
           if (existsSync(bmpPath)) {
             return `Screenshot saved as BMP: ${bmpPath} (requested format failed)`;
           }
-          
+
           throw new Error('Failed to save screenshot - file not created');
         }
-        
+
         // Verify file exists
         if (existsSync(args.outputPath)) {
           return `Screenshot saved to: ${args.outputPath}`;

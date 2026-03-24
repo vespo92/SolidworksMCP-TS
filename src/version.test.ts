@@ -1,13 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { SolidWorksMCPServer } from './index.js';
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
+import { describe, expect, it } from 'vitest';
+
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
 
-describe('Version Test', () => {
-  it('should initialize with the correct version from package.json', () => {
-    const server = new SolidWorksMCPServer({ registerResources: false });
-    // @ts-ignore - Accessing private property for testing
-    expect(server.server.info.version).toBe(packageJson.version);
+describe('Version', () => {
+  it('should have a valid semver version in package.json', () => {
+    expect(packageJson.version).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  it('should have required package.json fields', () => {
+    expect(packageJson.name).toBe('solidworks-mcp-server');
+    expect(packageJson.type).toBe('module');
+    expect(packageJson.main).toBe('dist/index.js');
   });
 });

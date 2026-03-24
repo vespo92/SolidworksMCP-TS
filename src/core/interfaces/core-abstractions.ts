@@ -36,38 +36,29 @@ export class ResultUtil {
     return result.success === false;
   }
 
-  static map<T, U, E>(
-    result: Result<T, E>,
-    fn: (data: T) => U
-  ): Result<U, E> {
+  static map<T, U, E>(result: Result<T, E>, fn: (data: T) => U): Result<U, E> {
     if (ResultUtil.isSuccess(result)) {
       return ResultUtil.ok(fn(result.data));
     }
     return result;
   }
 
-  static flatMap<T, U, E>(
-    result: Result<T, E>,
-    fn: (data: T) => Result<U, E>
-  ): Result<U, E> {
+  static flatMap<T, U, E>(result: Result<T, E>, fn: (data: T) => Result<U, E>): Result<U, E> {
     if (ResultUtil.isSuccess(result)) {
       return fn(result.data);
     }
     return result;
   }
 
-  static async fromPromise<T>(
-    promise: Promise<T>,
-    errorHandler?: (error: unknown) => Error
-  ): Promise<Result<T>> {
+  static async fromPromise<T>(promise: Promise<T>, errorHandler?: (error: unknown) => Error): Promise<Result<T>> {
     try {
       const data = await promise;
       return ResultUtil.ok(data);
     } catch (error) {
-      const processedError = errorHandler 
+      const processedError = errorHandler
         ? errorHandler(error)
-        : error instanceof Error 
-          ? error 
+        : error instanceof Error
+          ? error
           : new Error(String(error));
       return ResultUtil.fail(processedError);
     }
@@ -81,8 +72,11 @@ export class ResultUtil {
 export abstract class DomainError extends Error {
   abstract readonly code: string;
   abstract readonly statusCode: number;
-  
-  constructor(message: string, public readonly details?: unknown) {
+
+  constructor(
+    message: string,
+    public readonly details?: unknown
+  ) {
     super(message);
     this.name = this.constructor.name;
     Error.captureStackTrace(this, this.constructor);
@@ -263,24 +257,24 @@ export interface ISolidWorksAdapter {
   connect(): Promise<Result<void>>;
   disconnect(): Promise<Result<void>>;
   isConnected(): boolean;
-  
+
   // Model operations
   openModel(path: string): Promise<Result<ISolidWorksModel>>;
   closeModel(save: boolean): Promise<Result<void>>;
   createPart(): Promise<Result<ISolidWorksModel>>;
   getCurrentModel(): Result<ISolidWorksModel | null>;
   saveModel(path?: string): Promise<Result<void>>;
-  
+
   // Feature operations
   createFeature(params: unknown): Promise<Result<ISolidWorksFeature>>;
   getFeatures(): Promise<Result<ISolidWorksFeature[]>>;
   suppressFeature(name: string): Promise<Result<void>>;
-  
+
   // Dimension operations
   getDimension(name: string): Promise<Result<ISolidWorksDimension>>;
   setDimension(name: string, value: number): Promise<Result<void>>;
   listDimensions(): Promise<Result<ISolidWorksDimension[]>>;
-  
+
   // Export operations
   exportModel(path: string, format: string): Promise<Result<void>>;
 }
@@ -362,10 +356,7 @@ export interface IValidationRule<T = unknown> {
  * Middleware interface for request processing pipeline
  */
 export interface IMiddleware<TContext = unknown> {
-  execute(
-    context: TContext,
-    next: () => Promise<Result<void>>
-  ): Promise<Result<void>>;
+  execute(context: TContext, next: () => Promise<Result<void>>): Promise<Result<void>>;
 }
 
 /**
