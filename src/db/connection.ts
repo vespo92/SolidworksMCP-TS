@@ -3,8 +3,8 @@
  * Supports SQL Server and PostgreSQL
  */
 
-import pg from 'pg';
 import mssql from 'mssql';
+import pg from 'pg';
 import { logger } from '../utils/logger.js';
 
 export interface DBConnection {
@@ -14,21 +14,21 @@ export interface DBConnection {
 
 export class PostgreSQLConnection implements DBConnection {
   private client: pg.Client;
-  
+
   constructor(connectionString: string) {
     this.client = new pg.Client({ connectionString });
   }
-  
+
   async connect(): Promise<void> {
     await this.client.connect();
     logger.info('Connected to PostgreSQL database');
   }
-  
+
   async query(sql: string, params?: any[]): Promise<any[]> {
     const result = await this.client.query(sql, params);
     return result.rows;
   }
-  
+
   async close(): Promise<void> {
     await this.client.end();
     logger.info('Disconnected from PostgreSQL database');
@@ -38,46 +38,46 @@ export class PostgreSQLConnection implements DBConnection {
 export class SQLServerConnection implements DBConnection {
   private pool: mssql.ConnectionPool | null = null;
   private config: mssql.config;
-  
+
   constructor(connectionString: string) {
     // Parse connection string for SQL Server
     const url = new URL(connectionString);
     this.config = {
       server: url.hostname,
-      port: parseInt(url.port) || 1433,
+      port: parseInt(url.port, 10) || 1433,
       database: url.pathname.substring(1),
       user: url.username,
       password: url.password,
       options: {
         encrypt: true,
-        trustServerCertificate: true
-      }
+        trustServerCertificate: true,
+      },
     };
   }
-  
+
   async connect(): Promise<void> {
     this.pool = await mssql.connect(this.config);
     logger.info('Connected to SQL Server database');
   }
-  
+
   async query(sql: string, params?: any[]): Promise<any[]> {
     if (!this.pool) {
       await this.connect();
     }
-    
+
     const request = this.pool!.request();
-    
+
     // Add parameters if provided
     if (params) {
       params.forEach((param, index) => {
         request.input(`param${index}`, param);
       });
     }
-    
+
     const result = await request.query(sql);
     return result.recordset;
   }
-  
+
   async close(): Promise<void> {
     if (this.pool) {
       await this.pool.close();
@@ -88,7 +88,7 @@ export class SQLServerConnection implements DBConnection {
 
 export class DatabaseManager {
   private connections: Map<string, DBConnection> = new Map();
-  
+
   /**
    * Create a database connection
    */
@@ -97,9 +97,9 @@ export class DatabaseManager {
     if (this.connections.has(name)) {
       await this.closeConnection(name);
     }
-    
+
     let connection: DBConnection;
-    
+
     if (connectionString.startsWith('postgresql://') || connectionString.startsWith('postgres://')) {
       connection = new PostgreSQLConnection(connectionString);
       await (connection as PostgreSQLConnection).connect();
@@ -109,18 +109,18 @@ export class DatabaseManager {
     } else {
       throw new Error(`Unsupported database type in connection string: ${connectionString}`);
     }
-    
+
     this.connections.set(name, connection);
     return connection;
   }
-  
+
   /**
    * Get an existing connection
    */
   getConnection(name: string): DBConnection | undefined {
     return this.connections.get(name);
   }
-  
+
   /**
    * Close a connection
    */
@@ -131,7 +131,7 @@ export class DatabaseManager {
       this.connections.delete(name);
     }
   }
-  
+
   /**
    * Close all connections
    */
@@ -141,7 +141,7 @@ export class DatabaseManager {
     }
     this.connections.clear();
   }
-  
+
   /**
    * Execute a query on a named connection
    */
@@ -150,7 +150,7 @@ export class DatabaseManager {
     if (!connection) {
       throw new Error(`No connection found with name: ${connectionName}`);
     }
-    
+
     return await connection.query(sql, params);
   }
 }

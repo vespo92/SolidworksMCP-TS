@@ -26,7 +26,7 @@ export class MockSolidWorksAdapter {
       failOperations: config.failOperations || false,
       simulateErrors: config.simulateErrors || false,
       delayMs: config.delayMs || 0,
-      ...config
+      ...config,
     };
 
     this.version = this.config.version || '2024';
@@ -44,7 +44,7 @@ export class MockSolidWorksAdapter {
       Visible: true,
       RevisionNumber: () => {
         // Return version in different formats based on year
-        const year = parseInt(this.version);
+        const year = parseInt(this.version, 10);
         if (year >= 2020) {
           return `${this.version} SP5.0`;
         } else {
@@ -70,16 +70,16 @@ export class MockSolidWorksAdapter {
       GetDocumentCount: () => this.documents.size,
       Frame: () => ({
         ModelWindow: () => ({
-          ModelDoc: this.activeDoc
-        })
-      })
+          ModelDoc: this.activeDoc,
+        }),
+      }),
     };
   }
 
   /**
    * Create a mock document
    */
-  private createDocument(type: 'part' | 'assembly' | 'drawing', template?: string): any {
+  private createDocument(type: 'part' | 'assembly' | 'drawing', _template?: string): any {
     if (this.config.failOperations) {
       return null;
     }
@@ -143,13 +143,13 @@ export class MockSolidWorksAdapter {
       // Basic properties
       GetTitle: () => `Mock_${type}_${id}`,
       GetPathName: () => `C:\\temp\\${type}_${id}.sld${type === 'part' ? 'prt' : type === 'assembly' ? 'asm' : 'drw'}`,
-      GetType: () => type === 'part' ? 1 : type === 'assembly' ? 2 : 3,
+      GetType: () => (type === 'part' ? 1 : type === 'assembly' ? 2 : 3),
 
       // Feature management
       FeatureManager: this.createMockFeatureManager(features),
       GetFeatureCount: () => features.length,
       FeatureByPositionReverse: (index: number) => features[features.length - 1 - index] || null,
-      FeatureByName: (name: string) => features.find(f => f.Name === name) || null,
+      FeatureByName: (name: string) => features.find((f) => f.Name === name) || null,
 
       // Sketch management
       SketchManager: this.createMockSketchManager(),
@@ -157,13 +157,13 @@ export class MockSolidWorksAdapter {
       // Selection management
       Extension: this.createMockExtension(features),
       SelectionManager: this.createMockSelectionManager(),
-      ClearSelection2: (clear: boolean) => true,
+      ClearSelection2: (_clear: boolean) => true,
 
       // Save operations
       Save3: () => true,
       Save: () => true,
-      SaveAs3: (path: string) => true,
-      SaveAs4: (path: string) => true,
+      SaveAs3: (_path: string) => true,
+      SaveAs4: (_path: string) => true,
 
       // Rebuild
       EditRebuild3: () => true,
@@ -178,14 +178,14 @@ export class MockSolidWorksAdapter {
       GetMassProperties: () => this.createMockMassProperties(),
 
       // Drawing-specific
-      CreateDrawViewFromModelView3: (modelPath: string, viewType: string, x: number, y: number, scale: number) => {
+      CreateDrawViewFromModelView3: (_modelPath: string, viewType: string, _x: number, _y: number, _scale: number) => {
         if (this.config.failOperations) return null;
         return this.createMockDrawingView(viewType);
       },
-      CreateUnfoldedViewAt3: (x: number, y: number, scale: number, unfold: boolean) => {
+      CreateUnfoldedViewAt3: (_x: number, _y: number, _scale: number, _unfold: boolean) => {
         if (this.config.failOperations) return null;
         return this.createMockDrawingView('Section');
-      }
+      },
     };
   }
 
@@ -194,7 +194,7 @@ export class MockSolidWorksAdapter {
    */
   private createMockFeatureManager(features: any[]): any {
     return {
-      FeatureExtrusion: (...args: any[]) => {
+      FeatureExtrusion: (..._args: any[]) => {
         if (this.config.simulateErrors) {
           throw new Error('Mock extrusion failed');
         }
@@ -202,7 +202,7 @@ export class MockSolidWorksAdapter {
         features.push(feature);
         return feature;
       },
-      FeatureExtrusion3: (...args: any[]) => {
+      FeatureExtrusion3: (..._args: any[]) => {
         if (this.config.simulateErrors) {
           throw new Error('Mock extrusion failed');
         }
@@ -210,22 +210,22 @@ export class MockSolidWorksAdapter {
         features.push(feature);
         return feature;
       },
-      FeatureRevolve2: (...args: any[]) => {
+      FeatureRevolve2: (..._args: any[]) => {
         const feature = this.createMockFeature('Revolve1', 'Revolve');
         features.push(feature);
         return feature;
       },
-      InsertProtrusionSwept4: (...args: any[]) => {
+      InsertProtrusionSwept4: (..._args: any[]) => {
         const feature = this.createMockFeature('Sweep1', 'Sweep');
         features.push(feature);
         return feature;
       },
-      InsertProtrusionLoft3: (...args: any[]) => {
+      InsertProtrusionLoft3: (..._args: any[]) => {
         const feature = this.createMockFeature('Loft1', 'Loft');
         features.push(feature);
         return feature;
       },
-      GetPlane: (name: string) => ({ Name: name })
+      GetPlane: (name: string) => ({ Name: name }),
     };
   }
 
@@ -253,7 +253,7 @@ export class MockSolidWorksAdapter {
       },
       CreateRectangle: (x1: number, y1: number, z1: number, x2: number, y2: number, z2: number) => {
         return { Type: 'Rectangle', Points: [x1, y1, z1, x2, y2, z2] };
-      }
+      },
     };
   }
 
@@ -262,18 +262,29 @@ export class MockSolidWorksAdapter {
    */
   private createMockExtension(features: any[]): any {
     return {
-      SelectByID2: (name: string, type: string, x: number, y: number, z: number, append: boolean, mark: number, callout: any, selOption: number) => {
+      SelectByID2: (
+        name: string,
+        type: string,
+        _x: number,
+        _y: number,
+        _z: number,
+        _append: boolean,
+        _mark: number,
+        _callout: any,
+        _selOption: number
+      ) => {
         // Simulate selection
         if (type === 'SKETCH') {
-          return features.some(f => f.Name === name && f.GetTypeName2().includes('Sketch'));
+          return features.some((f) => f.Name === name && f.GetTypeName2().includes('Sketch'));
         }
-        return features.some(f => f.Name === name);
+        return features.some((f) => f.Name === name);
       },
-      CustomPropertyManager: (config: string) => this.createMockCustomPropertyManager(),
+      CustomPropertyManager: (_config: string) => this.createMockCustomPropertyManager(),
       CreateMassProperty: () => this.createMockMassProperties(),
       CreateMassProperty2: () => this.createMockMassProperties(),
-      SaveAs: (path: string, version: number, options: number, exportData: any, errors: any, warnings: any) => true,
-      GetParameter: (name: string) => this.createMockParameter(name)
+      SaveAs: (_path: string, _version: number, _options: number, _exportData: any, _errors: any, _warnings: any) =>
+        true,
+      GetParameter: (name: string) => this.createMockParameter(name),
     };
   }
 
@@ -285,8 +296,8 @@ export class MockSolidWorksAdapter {
 
     return {
       GetSelectedObjectCount: () => selections.length,
-      GetSelectedObject6: (index: number, mark: number) => selections[index - 1] || null,
-      AddSelection: (obj: any) => selections.push(obj)
+      GetSelectedObject6: (index: number, _mark: number) => selections[index - 1] || null,
+      AddSelection: (obj: any) => selections.push(obj),
     };
   }
 
@@ -298,9 +309,9 @@ export class MockSolidWorksAdapter {
       Name: name,
       GetName: () => name,
       GetTypeName2: () => type,
-      Select2: (append: boolean, mark: number) => true,
-      SetSuppression2: (state: number, config: any, children: any) => true,
-      IsSuppressed: () => false
+      Select2: (_append: boolean, _mark: number) => true,
+      SetSuppression2: (_state: number, _config: any, _children: any) => true,
+      IsSuppressed: () => false,
     };
   }
 
@@ -322,7 +333,7 @@ export class MockSolidWorksAdapter {
       SetValue: (newValue: number) => {
         value = newValue;
         return true;
-      }
+      },
     };
   }
 
@@ -338,7 +349,7 @@ export class MockSolidWorksAdapter {
       Density: 2700,
       MomentOfInertia: [0.001, 0, 0, 0, 0.001, 0, 0, 0, 0.001],
       Update: () => true,
-      Recalculate: () => true
+      Recalculate: () => true,
     };
   }
 
@@ -349,11 +360,18 @@ export class MockSolidWorksAdapter {
     const properties = new Map<string, string>();
 
     return {
-      Add3: (name: string, type: number, value: string, option: number) => {
+      Add3: (name: string, _type: number, value: string, _option: number) => {
         properties.set(name, value);
         return true;
       },
-      Get6: (name: string, useCached: boolean, value: any, resolvedValue: any, wasResolved: any, linkToProp: any) => {
+      Get6: (
+        name: string,
+        _useCached: boolean,
+        _value: any,
+        _resolvedValue: any,
+        _wasResolved: any,
+        _linkToProp: any
+      ) => {
         return properties.has(name);
       },
       Set2: (name: string, value: string) => {
@@ -363,7 +381,7 @@ export class MockSolidWorksAdapter {
       Delete2: (name: string) => {
         properties.delete(name);
         return true;
-      }
+      },
     };
   }
 
@@ -375,17 +393,8 @@ export class MockSolidWorksAdapter {
       Name: `${viewType}View`,
       Type: viewType,
       ScaleDecimal: 1.0,
-      SetScale: (num: number, den: number) => true
+      SetScale: (_num: number, _den: number) => true,
     };
-  }
-
-  /**
-   * Simulate delay (for testing timing-sensitive code)
-   */
-  private async delay(): Promise<void> {
-    if (this.config.delayMs && this.config.delayMs > 0) {
-      await new Promise(resolve => setTimeout(resolve, this.config.delayMs));
-    }
   }
 
   /**

@@ -1,31 +1,31 @@
 /**
  * Edge.js Adapter for SolidWorks COM Integration
- * 
+ *
  * This adapter uses Edge.js to bridge Node.js with C# code,
  * providing full access to SolidWorks COM API without the
  * parameter limitations of direct COM bridges.
  */
 
+import { logger } from '../utils/logger.js';
 // @ts-ignore - Edge.js requires .NET runtime
 // import edge from 'edge-js';
-import { ISolidWorksAdapter, Command, AdapterResult, AdapterHealth } from './types.js';
-import { logger } from '../utils/logger.js';
+import type { AdapterHealth, AdapterResult, Command, ISolidWorksAdapter } from './types.js';
 
 export class EdgeJsAdapter implements ISolidWorksAdapter {
   private executeCS: any;
   private connected: boolean = false;
-  
+
   isConnected(): boolean {
     return this.connected;
   }
-  
+
   constructor() {
     this.initializeCSharpBridge();
   }
-  
+
   private initializeCSharpBridge() {
     // Define C# code that will be compiled and executed
-    const csharpCode = `
+    const _csharpCode = `
       using System;
       using System.Threading.Tasks;
       using System.Dynamic;
@@ -230,23 +230,23 @@ export class EdgeJsAdapter implements ISolidWorksAdapter {
         }
       }
     `;
-    
+
     // Compile the C# code (commented out - requires Edge.js)
     // this.executeCS = edge.func(csharpCode);
-    
+
     // Mock implementation for now
-    this.executeCS = async (input: any) => {
+    this.executeCS = async (_input: any) => {
       return { success: false, error: 'Edge.js not available - install .NET runtime' };
     };
   }
-  
+
   async connect(): Promise<void> {
     try {
       const result = await this.executeCS({
         command: 'Connect',
-        parameters: {}
+        parameters: {},
       });
-      
+
       if (result.success) {
         this.connected = true;
         logger.info('Connected to SolidWorks via Edge.js adapter');
@@ -258,14 +258,14 @@ export class EdgeJsAdapter implements ISolidWorksAdapter {
       throw error;
     }
   }
-  
+
   async disconnect(): Promise<void> {
     try {
       const result = await this.executeCS({
         command: 'Disconnect',
-        parameters: {}
+        parameters: {},
       });
-      
+
       if (result.success) {
         this.connected = false;
         logger.info('Disconnected from SolidWorks');
@@ -275,24 +275,24 @@ export class EdgeJsAdapter implements ISolidWorksAdapter {
       throw error;
     }
   }
-  
+
   async execute<T>(command: Command): Promise<AdapterResult<T>> {
     if (!this.connected && command.name !== 'Connect') {
       throw new Error('Not connected to SolidWorks');
     }
-    
+
     try {
       // Validate command before execution
       if (!command.validate()) {
         throw new Error(`Command validation failed: ${command.name}`);
       }
-      
+
       // Map command to C# execution
-      let result;
+      let result: any;
       if (command.name === 'CreateExtrusion') {
         result = await this.executeCS({
           command: 'CreateExtrusion',
-          parameters: command.parameters
+          parameters: command.parameters,
         });
       } else {
         // Generic method execution
@@ -301,11 +301,11 @@ export class EdgeJsAdapter implements ISolidWorksAdapter {
           parameters: {
             objectPath: command.parameters.objectPath || 'Application',
             methodName: command.name,
-            arguments: command.parameters.arguments || []
-          }
+            arguments: command.parameters.arguments || [],
+          },
         });
       }
-      
+
       if (result.success) {
         return {
           success: true,
@@ -313,25 +313,25 @@ export class EdgeJsAdapter implements ISolidWorksAdapter {
           timing: {
             start: new Date(),
             end: new Date(),
-            duration: 0
-          }
+            duration: 0,
+          },
         };
       } else {
         throw new Error(result.error || 'Command execution failed');
       }
     } catch (error) {
       logger.error(`Edge.js adapter command failed: ${command.name}`, error);
-      
+
       // Try fallback if available
       if (command.fallback) {
         logger.info(`Attempting fallback for ${command.name}`);
         return this.execute(command.fallback);
       }
-      
+
       throw error;
     }
   }
-  
+
   async healthCheck(): Promise<AdapterHealth> {
     try {
       const result = await this.executeCS({
@@ -339,104 +339,104 @@ export class EdgeJsAdapter implements ISolidWorksAdapter {
         parameters: {
           objectPath: 'Application',
           methodName: 'GetProcessID',
-          arguments: []
-        }
+          arguments: [],
+        },
       });
-      
+
       return {
         healthy: result.success && result.result > 0,
         lastCheck: new Date(),
         errorCount: 0,
         successCount: 1,
         averageResponseTime: 0,
-        connectionStatus: 'connected'
+        connectionStatus: 'connected',
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         healthy: false,
         lastCheck: new Date(),
         errorCount: 1,
         successCount: 0,
         averageResponseTime: 0,
-        connectionStatus: 'disconnected'
+        connectionStatus: 'disconnected',
       };
     }
   }
-  
+
   // Stub implementations for missing interface methods
-  async executeRaw(method: string, args: any[]): Promise<any> {
+  async executeRaw(_method: string, _args: any[]): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async openModel(filePath: string): Promise<any> {
+
+  async openModel(_filePath: string): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async closeModel(save?: boolean): Promise<void> {
+
+  async closeModel(_save?: boolean): Promise<void> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
+
   async createPart(): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
+
   async createAssembly(): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
+
   async createDrawing(): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async createExtrusion(params: any): Promise<any> {
+
+  async createExtrusion(_params: any): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async createRevolve(params: any): Promise<any> {
+
+  async createRevolve(_params: any): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async createSweep(params: any): Promise<any> {
+
+  async createSweep(_params: any): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async createLoft(params: any): Promise<any> {
+
+  async createLoft(_params: any): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async createSketch(plane: string): Promise<string> {
+
+  async createSketch(_plane: string): Promise<string> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async addLine(x1: number, y1: number, x2: number, y2: number): Promise<void> {
+
+  async addLine(_x1: number, _y1: number, _x2: number, _y2: number): Promise<void> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async addCircle(centerX: number, centerY: number, radius: number): Promise<void> {
+
+  async addCircle(_centerX: number, _centerY: number, _radius: number): Promise<void> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async addRectangle(x1: number, y1: number, x2: number, y2: number): Promise<void> {
+
+  async addRectangle(_x1: number, _y1: number, _x2: number, _y2: number): Promise<void> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
+
   async exitSketch(): Promise<void> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
+
   async getMassProperties(): Promise<any> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async exportFile(filePath: string, format: string): Promise<void> {
+
+  async exportFile(_filePath: string, _format: string): Promise<void> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async getDimension(name: string): Promise<number> {
+
+  async getDimension(_name: string): Promise<number> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
-  
-  async setDimension(name: string, value: number): Promise<void> {
+
+  async setDimension(_name: string, _value: number): Promise<void> {
     throw new Error('Edge.js adapter not available - .NET runtime required');
   }
 }

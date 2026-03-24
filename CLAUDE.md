@@ -7,15 +7,18 @@ npm run build        # TypeScript compile (tsc)
 npm run dev          # Hot-reload dev server (tsx watch)
 npm test             # Run unit tests (vitest)
 npm run test:watch   # Watch mode tests
-npm run lint         # ESLint check
+npm run lint         # Biome lint check
+npm run lint:fix     # Biome auto-fix
+npm run format       # Biome format
+npm run check        # TypeScript + Biome in one command
 npm run typecheck    # Type check without emit
 ```
 
-**Important**: This project requires Windows + SolidWorks to run. The `winax` native module only compiles on Windows. Tests use `USE_MOCK_SOLIDWORKS=true` by default for cross-platform CI.
+**Important**: This project requires Windows + SolidWorks to run. The `winax` native module only compiles on Windows and is an optional dependency. On non-Windows, use `npm install --ignore-scripts`. Tests use `USE_MOCK_SOLIDWORKS=true` by default for cross-platform CI.
 
 ## Architecture
 
-- **MCP Server** (`src/index.ts`) - Entry point, registers 88+ tools via stdio transport
+- **MCP Server** (`src/index.ts`) - Entry point, registers tools via stdio transport
 - **Adapters** (`src/adapters/`) - COM bridge layer with intelligent routing:
   - `winax-adapter.ts` - Direct COM via winax
   - `winax-adapter-enhanced.ts` - Enhanced adapter with complexity analysis

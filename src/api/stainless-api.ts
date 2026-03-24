@@ -1,11 +1,12 @@
 /**
  * Stainless API Framework Integration for SolidWorks MCP
- * 
+ *
  * This demonstrates how to use Stainless to create a type-safe,
  * well-documented API with automatic SDK generation.
  */
 
 import { z } from 'zod';
+
 // @ts-ignore - Stainless API not yet installed
 // import { stl } from '@stainless-api/stl-api';
 
@@ -16,9 +17,10 @@ const stl: any = {
   paginated: (schema: any) => schema,
   websocket: (config: any) => config,
   retry: (config: any) => config,
-  rateLimit: (config: any) => config
+  rateLimit: (config: any) => config,
 };
-import { ModelSchema, FeatureSchema, SketchSchema } from '../adapters/types.js';
+
+import { FeatureSchema, ModelSchema, SketchSchema } from '../adapters/types.js';
 
 /**
  * Request/Response schemas with Zod
@@ -39,10 +41,12 @@ const CreateExtrusionRequest = z.object({
 });
 
 const BatchOperationRequest = z.object({
-  operations: z.array(z.object({
-    type: z.string(),
-    parameters: z.record(z.any()),
-  })),
+  operations: z.array(
+    z.object({
+      type: z.string(),
+      parameters: z.record(z.any()),
+    })
+  ),
   transactional: z.boolean().default(false),
 });
 
@@ -56,7 +60,7 @@ const ErrorResponse = z.object({
 
 /**
  * Stainless API Definition
- * 
+ *
  * This creates a fully type-safe API with:
  * - Automatic OpenAPI spec generation
  * - Client SDK generation
@@ -73,7 +77,7 @@ export const solidworksAPI = stl.api({
       email: 'support@solidworksmcp.dev',
     },
   },
-  
+
   // Connection endpoints
   connection: {
     connect: stl.endpoint({
@@ -91,7 +95,7 @@ export const solidworksAPI = stl.api({
       }),
       errors: [ErrorResponse],
     }),
-    
+
     disconnect: stl.endpoint({
       method: 'POST',
       path: '/connection/disconnect',
@@ -100,7 +104,7 @@ export const solidworksAPI = stl.api({
         disconnected: z.boolean(),
       }),
     }),
-    
+
     status: stl.endpoint({
       method: 'GET',
       path: '/connection/status',
@@ -113,7 +117,7 @@ export const solidworksAPI = stl.api({
       }),
     }),
   },
-  
+
   // Model operations
   models: {
     create: stl.endpoint({
@@ -136,7 +140,7 @@ export const solidworksAPI = stl.api({
         },
       ],
     }),
-    
+
     open: stl.endpoint({
       method: 'POST',
       path: '/models/open',
@@ -147,7 +151,7 @@ export const solidworksAPI = stl.api({
       }),
       response: ModelSchema,
     }),
-    
+
     list: stl.endpoint({
       method: 'GET',
       path: '/models',
@@ -159,7 +163,7 @@ export const solidworksAPI = stl.api({
         cursor: z.string().optional(),
       }),
     }),
-    
+
     get: stl.endpoint({
       method: 'GET',
       path: '/models/{modelId}',
@@ -173,7 +177,7 @@ export const solidworksAPI = stl.api({
         customProperties: z.record(z.string()),
       }),
     }),
-    
+
     close: stl.endpoint({
       method: 'DELETE',
       path: '/models/{modelId}',
@@ -189,7 +193,7 @@ export const solidworksAPI = stl.api({
       }),
     }),
   },
-  
+
   // Feature operations
   features: {
     extrude: stl.endpoint({
@@ -207,7 +211,7 @@ export const solidworksAPI = stl.api({
         }),
       ],
     }),
-    
+
     revolve: stl.endpoint({
       method: 'POST',
       path: '/features/revolve',
@@ -219,7 +223,7 @@ export const solidworksAPI = stl.api({
       }),
       response: FeatureSchema,
     }),
-    
+
     sweep: stl.endpoint({
       method: 'POST',
       path: '/features/sweep',
@@ -231,7 +235,7 @@ export const solidworksAPI = stl.api({
       }),
       response: FeatureSchema,
     }),
-    
+
     list: stl.endpoint({
       method: 'GET',
       path: '/models/{modelId}/features',
@@ -247,7 +251,7 @@ export const solidworksAPI = stl.api({
       }),
     }),
   },
-  
+
   // Sketch operations
   sketches: {
     create: stl.endpoint({
@@ -260,7 +264,7 @@ export const solidworksAPI = stl.api({
       }),
       response: SketchSchema,
     }),
-    
+
     addLine: stl.endpoint({
       method: 'POST',
       path: '/sketches/{sketchId}/lines',
@@ -277,7 +281,7 @@ export const solidworksAPI = stl.api({
         type: z.literal('line'),
       }),
     }),
-    
+
     addCircle: stl.endpoint({
       method: 'POST',
       path: '/sketches/{sketchId}/circles',
@@ -295,7 +299,7 @@ export const solidworksAPI = stl.api({
       }),
     }),
   },
-  
+
   // Batch operations
   batch: {
     execute: stl.endpoint({
@@ -304,12 +308,14 @@ export const solidworksAPI = stl.api({
       description: 'Execute multiple operations in batch',
       request: BatchOperationRequest,
       response: z.object({
-        results: z.array(z.object({
-          index: z.number(),
-          success: z.boolean(),
-          data: z.any().optional(),
-          error: z.string().optional(),
-        })),
+        results: z.array(
+          z.object({
+            index: z.number(),
+            success: z.boolean(),
+            data: z.any().optional(),
+            error: z.string().optional(),
+          })
+        ),
         summary: z.object({
           total: z.number(),
           succeeded: z.number(),
@@ -326,7 +332,7 @@ export const solidworksAPI = stl.api({
       ],
     }),
   },
-  
+
   // WebSocket support for real-time updates
   events: {
     subscribe: stl.websocket({
@@ -337,7 +343,7 @@ export const solidworksAPI = stl.api({
         'model.closed': z.object({ modelId: z.string() }),
         'feature.created': FeatureSchema,
         'feature.modified': FeatureSchema,
-        'error': ErrorResponse,
+        error: ErrorResponse,
       },
     }),
   },
@@ -352,41 +358,41 @@ export async function exampleUsage() {
     baseURL: 'http://localhost:3000',
     apiKey: process.env.SOLIDWORKS_API_KEY,
   });
-  
+
   // Type-safe API calls with autocomplete
-  const connection = await client.connection.connect({
+  const _connection = await client.connection.connect({
     visible: true,
     timeout: 30000,
   });
-  
+
   const model = await client.models.create({
     type: 'part',
     name: 'MyPart',
   });
-  
+
   const sketch = await client.sketches.create({
     plane: 'Front',
   });
-  
+
   await client.sketches.addLine({
     sketchId: sketch.id,
     start: [0, 0, 0],
     end: [100, 0, 0],
   });
-  
-  const feature = await client.features.extrude({
+
+  const _feature = await client.features.extrude({
     sketchId: sketch.id,
     depth: 25,
     reverse: false,
   });
-  
+
   // Paginated results with auto-pagination
   for await (const feature of client.features.list({ modelId: model.path })) {
     console.log(feature.name);
   }
-  
+
   // Batch operations
-  const batch = await client.batch.execute({
+  const _batch = await client.batch.execute({
     operations: [
       { type: 'createSketch', parameters: { plane: 'Top' } },
       { type: 'addCircle', parameters: { radius: 50 } },
@@ -394,7 +400,7 @@ export async function exampleUsage() {
     ],
     transactional: true,
   });
-  
+
   // WebSocket events
   const events = await client.events.subscribe();
   events.on('feature.created', (feature: any) => {
@@ -420,9 +426,9 @@ export function createMCPHandler() {
       }
       return { userId: 'mcp-client' };
     },
-    
+
     // Custom error handling
-    onError: (error: any, req: any, res: any) => {
+    onError: (error: any, _req: any, _res: any) => {
       console.error('API Error:', error);
       return {
         error: {
@@ -432,12 +438,12 @@ export function createMCPHandler() {
         },
       };
     },
-    
+
     // Telemetry
     onRequest: (req: any) => {
       console.log(`${req.method} ${req.path}`);
     },
-    
+
     onResponse: (req: any, res: any, duration: any) => {
       console.log(`${req.method} ${req.path} - ${res.status} (${duration}ms)`);
     },

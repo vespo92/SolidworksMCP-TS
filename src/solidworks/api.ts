@@ -1,17 +1,17 @@
 // @ts-ignore
 import winax from 'winax';
-import { SolidWorksModel, SolidWorksFeature } from './types.js';
 import { logger } from '../utils/logger.js';
+import type { SolidWorksFeature, SolidWorksModel } from './types.js';
 
 export class SolidWorksAPI {
   private swApp: any;
   private currentModel: any;
-  
+
   constructor() {
     this.swApp = null;
     this.currentModel = null;
   }
-  
+
   connect(): void {
     try {
       // Create or get running instance of SolidWorks
@@ -19,7 +19,7 @@ export class SolidWorksAPI {
       this.swApp = new winax.Object('SldWorks.Application');
       this.swApp.Visible = true;
       logger.info('Connected to SolidWorks');
-    } catch (error) {
+    } catch (_error) {
       // Try alternative connection method
       try {
         // @ts-ignore
@@ -32,7 +32,7 @@ export class SolidWorksAPI {
       }
     }
   }
-  
+
   disconnect(): void {
     if (this.currentModel) {
       this.currentModel = null;
@@ -42,24 +42,24 @@ export class SolidWorksAPI {
       this.swApp = null;
     }
   }
-  
+
   isConnected(): boolean {
     return this.swApp !== null;
   }
-  
+
   // Model operations
   openModel(filePath: string): SolidWorksModel {
     if (!this.swApp) throw new Error('Not connected to SolidWorks');
-    
+
     const errors = { value: 0 };
     const warnings = { value: 0 };
-    
+
     // Determine file type from extension
     const ext = filePath.toLowerCase().split('.').pop();
     let docType = 1; // swDocPART
     if (ext === 'sldasm') docType = 2; // swDocASSEMBLY
     if (ext === 'slddrw') docType = 3; // swDocDRAWING
-    
+
     this.currentModel = this.swApp.OpenDoc6(
       filePath,
       docType,
@@ -68,29 +68,29 @@ export class SolidWorksAPI {
       errors,
       warnings
     );
-    
+
     if (!this.currentModel) {
       throw new Error(`Failed to open model: ${filePath}`);
     }
-    
+
     // Ensure the opened model is set as active
     try {
       this.swApp.ActivateDoc2(this.currentModel.GetTitle(), false, errors);
-    } catch (e) {
+    } catch (_e) {
       // ActivateDoc2 might fail but model is still open
     }
-    
+
     return {
       path: filePath,
       name: this.currentModel.GetTitle(),
-      type: (['Part', 'Assembly', 'Drawing'][docType - 1] as 'Part' | 'Assembly' | 'Drawing'),
+      type: ['Part', 'Assembly', 'Drawing'][docType - 1] as 'Part' | 'Assembly' | 'Drawing',
       isActive: true,
     };
   }
-  
+
   closeModel(save: boolean = false): void {
     if (!this.currentModel) return;
-    
+
     let modelTitle = '';
     try {
       // Safely get the title
@@ -99,43 +99,43 @@ export class SolidWorksAPI {
       } else if (this.currentModel.GetPathName) {
         modelTitle = this.currentModel.GetPathName();
       }
-    } catch (e) {
+    } catch (_e) {
       // If we can't get the title, continue anyway
       modelTitle = 'Unknown';
     }
-    
+
     if (save) {
       try {
         this.currentModel.Save3(1, 0, 0); // swSaveAsOptions_Silent
-      } catch (e) {
+      } catch (_e) {
         // Save might fail if document is new and has no path
         try {
           // Try Save instead
           this.currentModel.Save();
-        } catch (e2) {
+        } catch (_e2) {
           // Continue even if save fails
         }
       }
     }
-    
+
     // Close using app method if title is available
     if (modelTitle && modelTitle !== 'Unknown' && this.swApp) {
       try {
         this.swApp.CloseDoc(modelTitle);
-      } catch (e) {
+      } catch (_e) {
         // Fallback: just clear the reference
       }
     }
-    
+
     this.currentModel = null;
   }
-  
+
   createPart(): SolidWorksModel {
     if (!this.swApp) throw new Error('Not connected to SolidWorks');
-    
+
     // Create new part document - use NewPart() which works better
     this.currentModel = this.swApp.NewPart();
-    
+
     if (!this.currentModel) {
       // Fallback to NewDocument if NewPart fails
       const template = this.swApp.GetUserPreferenceStringValue(8) || '';
@@ -145,7 +145,7 @@ export class SolidWorksAPI {
         throw new Error('Failed to create new part - no template available');
       }
     }
-    
+
     return {
       path: '',
       name: this.currentModel.GetTitle,
@@ -153,69 +153,69 @@ export class SolidWorksAPI {
       isActive: true,
     };
   }
-  
+
   // Macro support methods
   createSketch(params: any): any {
     if (!this.currentModel) throw new Error('No active model');
-    
+
     const { plane = 'Front' } = params;
     const planeRef = this.currentModel.FeatureManager.GetPlane(plane);
-    
+
     if (planeRef) {
       this.currentModel.SketchManager.InsertSketch(true);
       const sketchName = this.currentModel.SketchManager.ActiveSketch.Name;
       return { success: true, sketchId: sketchName };
     }
-    
+
     return { success: false, error: 'Failed to create sketch' };
   }
-  
+
   addLine(params: any): any {
     if (!this.currentModel) throw new Error('No active model');
-    
+
     const { x1 = 0, y1 = 0, z1 = 0, x2 = 100, y2 = 0, z2 = 0 } = params;
-    
+
     const line = this.currentModel.SketchManager.CreateLine(
-      x1 / 1000, y1 / 1000, z1 / 1000,  // Convert mm to m
-      x2 / 1000, y2 / 1000, z2 / 1000
+      x1 / 1000,
+      y1 / 1000,
+      z1 / 1000, // Convert mm to m
+      x2 / 1000,
+      y2 / 1000,
+      z2 / 1000
     );
-    
+
     if (line) {
       return { success: true, lineId: `line_${Date.now()}` };
     }
-    
+
     return { success: false, error: 'Failed to create line' };
   }
-  
+
   extrude(params: any): any {
     if (!this.currentModel) throw new Error('No active model');
-    
+
     const { depth = 25, reverse = false, draft = 0 } = params;
-    
+
     const feature = this.createExtrude(depth, draft, reverse);
-    
+
     if (feature) {
       return { success: true, featureId: feature.name };
     }
-    
+
     return { success: false, error: 'Failed to create extrusion' };
   }
-  
+
   // Feature operations
-  createExtrude(
-    depth: number,
-    draft: number = 0,
-    reverse: boolean = false
-  ): SolidWorksFeature {
+  createExtrude(depth: number, _draft: number = 0, reverse: boolean = false): SolidWorksFeature {
     if (!this.currentModel) throw new Error('No model open');
-    
+
     try {
       // Get the feature manager
       const featureMgr = this.currentModel.FeatureManager;
       if (!featureMgr) {
         throw new Error('Cannot access FeatureManager');
       }
-      
+
       // Make sure we're not in sketch edit mode
       try {
         const sketchMgr = this.currentModel.SketchManager;
@@ -224,17 +224,17 @@ export class SolidWorksAPI {
           // Exit sketch mode
           sketchMgr.InsertSketch(true);
         }
-      } catch (e) {
+      } catch (_e) {
         // Continue if no active sketch
       }
-      
+
       // Clear selections first
       try {
         this.currentModel.ClearSelection2(true);
-      } catch (e) {
+      } catch (_e) {
         // Continue
       }
-      
+
       // Select the sketch - try multiple methods with detailed logging
       let sketchSelected = false;
       let selectedSketchName = '';
@@ -252,7 +252,7 @@ export class SolidWorksAPI {
             const typeName = feat.GetTypeName2();
             const featName = feat.Name || feat.GetName();
 
-            if (typeName === 'ProfileFeature' || (typeName && typeName.toLowerCase().includes('sketch'))) {
+            if (typeName === 'ProfileFeature' || typeName?.toLowerCase().includes('sketch')) {
               feat.Select2(false, 0);
               sketchSelected = true;
               selectedSketchName = featName || `Feature at position ${i}`;
@@ -289,19 +289,20 @@ export class SolidWorksAPI {
       }
 
       if (!sketchSelected) {
-        const errorMessage = `No sketch found to extrude. Attempted sketches: ${attemptedSketches.join(', ')}. ` +
+        const errorMessage =
+          `No sketch found to extrude. Attempted sketches: ${attemptedSketches.join(', ')}. ` +
           `Please ensure a sketch exists or specify the sketch name explicitly.`;
         logger.error(errorMessage);
         throw new Error(errorMessage);
       }
 
       logger.info(`Using sketch: ${selectedSketchName}`);
-      
+
       // Convert depth to meters
       const depthInMeters = depth / 1000;
-      
+
       let feature = null;
-      
+
       // Try different extrusion methods
       // The winax library has issues with methods that have many parameters
       // We'll try to use a workaround by creating a variant array
@@ -309,34 +310,45 @@ export class SolidWorksAPI {
         // Method 1: Try the basic FeatureExtrusion with minimal params
         // This uses a different calling convention that might work better
         const args = [
-          true,           // Sd (single direction)
-          reverse,        // Flip
-          false,          // Dir
-          0,              // T1 (0 = blind)
-          0,              // T2
-          depthInMeters,  // D1 (depth)
-          0,              // D2
-          false,          // Dchk1
-          false,          // Dchk2
-          false,          // Ddir1
-          false,          // Ddir2
-          0,              // Dang1
-          0               // Dang2
+          true, // Sd (single direction)
+          reverse, // Flip
+          false, // Dir
+          0, // T1 (0 = blind)
+          0, // T2
+          depthInMeters, // D1 (depth)
+          0, // D2
+          false, // Dchk1
+          false, // Dchk2
+          false, // Ddir1
+          false, // Ddir2
+          0, // Dang1
+          0, // Dang2
         ];
-        
+
         // Try to invoke the method directly
         feature = featureMgr.FeatureExtrusion.apply(featureMgr, args);
         logger.info('FeatureExtrusion succeeded with apply');
       } catch (e) {
         logger.warn(`FeatureExtrusion with apply failed: ${e}`);
-        
+
         // Method 2: Try using the __methods__ property if available
         try {
           // Some COM objects expose methods differently
-          if (featureMgr.__methods__ && featureMgr.__methods__.FeatureExtrusion) {
+          if (featureMgr.__methods__?.FeatureExtrusion) {
             feature = featureMgr.__methods__.FeatureExtrusion(
-              true, reverse, false, 0, 0, depthInMeters, 0,
-              false, false, false, false, 0, 0
+              true,
+              reverse,
+              false,
+              0,
+              0,
+              depthInMeters,
+              0,
+              false,
+              false,
+              false,
+              false,
+              0,
+              0
             );
             logger.info('FeatureExtrusion succeeded via __methods__');
           } else {
@@ -344,37 +356,61 @@ export class SolidWorksAPI {
           }
         } catch (e2) {
           logger.warn(`Alternative method failed: ${e2}`);
-          
+
           // Method 3: Try to create the extrusion using automation-compatible approach
           try {
             // Last resort: Try with explicit VARIANT conversion if available
             const variant = winax.Variant;
             if (variant) {
               const params = new variant([
-                true, reverse, false, 0, 0, depthInMeters, 0,
-                false, false, false, false, 0, 0
+                true,
+                reverse,
+                false,
+                0,
+                0,
+                depthInMeters,
+                0,
+                false,
+                false,
+                false,
+                false,
+                0,
+                0,
               ]);
               feature = featureMgr.FeatureExtrusion(params);
               logger.info('FeatureExtrusion succeeded with VARIANT');
             } else {
               // Final fallback: standard call
               feature = featureMgr.FeatureExtrusion(
-                true, reverse, false, 0, 0, depthInMeters, 0,
-                false, false, false, false, 0, 0
+                true,
+                reverse,
+                false,
+                0,
+                0,
+                depthInMeters,
+                0,
+                false,
+                false,
+                false,
+                false,
+                0,
+                0
               );
               logger.info('FeatureExtrusion succeeded with standard call');
             }
           } catch (e3) {
             logger.error(`All extrusion methods failed: ${e3}`);
-            throw new Error(`Extrusion failed due to COM interface limitations. Please use the VBA macro at C:\\Users\\vinnie\\Claude\\SWMCP-4\\CreateExtrusion.swp`);
+            throw new Error(
+              `Extrusion failed due to COM interface limitations. Consider using a VBA macro approach for complex extrusions. Details: ${e3}`
+            );
           }
         }
       }
-      
+
       if (!feature) {
         throw new Error('Failed to create extrusion - feature is null');
       }
-      
+
       // Get feature name
       let featureName = 'Boss-Extrude1';
       try {
@@ -383,28 +419,28 @@ export class SolidWorksAPI {
         } else if (feature.GetName) {
           featureName = feature.GetName();
         }
-      } catch (e) {
+      } catch (_e) {
         // Use default name
       }
-      
+
       // Clear selections
       try {
         this.currentModel.ClearSelection2(true);
-      } catch (e) {
+      } catch (_e) {
         // Ignore
       }
-      
+
       // Rebuild
       try {
         this.currentModel.EditRebuild3();
-      } catch (e) {
+      } catch (_e) {
         try {
           this.currentModel.EditRebuild();
-        } catch (e2) {
+        } catch (_e2) {
           // Continue
         }
       }
-      
+
       return {
         name: featureName,
         type: 'Extrusion',
@@ -414,29 +450,29 @@ export class SolidWorksAPI {
       throw new Error(`Extrusion failed: ${error}`);
     }
   }
-  
+
   // Dimension operations
   getDimension(name: string): number {
     if (!this.currentModel) throw new Error('No model open');
-    
+
     let dimension = null;
-    
+
     // Method 1: Try Parameter method
     try {
       dimension = this.currentModel.Parameter(name);
-    } catch (e) {
+    } catch (_e) {
       // Parameter might not work
     }
-    
+
     // Method 2: Try GetParameter
     if (!dimension) {
       try {
         dimension = this.currentModel.GetParameter(name);
-      } catch (e) {
+      } catch (_e) {
         // GetParameter might not work
       }
     }
-    
+
     // Method 3: Try Extension.GetParameter
     if (!dimension) {
       try {
@@ -444,15 +480,15 @@ export class SolidWorksAPI {
         if (ext) {
           dimension = ext.GetParameter(name);
         }
-      } catch (e) {
+      } catch (_e) {
         // Extension method might not work
       }
     }
-    
+
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, undefined, 0);
+        const selected = this.currentModel.Extension.SelectByID2(name, 'DIMENSION', 0, 0, 0, false, 0, undefined, 0);
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {
@@ -463,15 +499,15 @@ export class SolidWorksAPI {
           }
           this.currentModel.ClearSelection2(true);
         }
-      } catch (e) {
+      } catch (_e) {
         // Selection method failed
       }
     }
-    
+
     if (!dimension) {
       throw new Error(`Dimension "${name}" not found. Try format like "D1@Sketch1" or "D1@Boss-Extrude1"`);
     }
-    
+
     // Get the value - try different properties
     let value = 0;
     try {
@@ -484,34 +520,34 @@ export class SolidWorksAPI {
       } else {
         throw new Error('Cannot read dimension value');
       }
-    } catch (e) {
+    } catch (_e) {
       throw new Error(`Cannot read value of dimension "${name}"`);
     }
-    
+
     return value;
   }
-  
+
   setDimension(name: string, value: number): void {
     if (!this.currentModel) throw new Error('No model open');
-    
+
     let dimension = null;
-    
+
     // Method 1: Try Parameter method
     try {
       dimension = this.currentModel.Parameter(name);
-    } catch (e) {
+    } catch (_e) {
       // Parameter might not work
     }
-    
+
     // Method 2: Try GetParameter
     if (!dimension) {
       try {
         dimension = this.currentModel.GetParameter(name);
-      } catch (e) {
+      } catch (_e) {
         // GetParameter might not work
       }
     }
-    
+
     // Method 3: Try Extension.GetParameter
     if (!dimension) {
       try {
@@ -519,15 +555,15 @@ export class SolidWorksAPI {
         if (ext) {
           dimension = ext.GetParameter(name);
         }
-      } catch (e) {
+      } catch (_e) {
         // Extension method might not work
       }
     }
-    
+
     // Method 4: Try SelectByID and get dimension
     if (!dimension) {
       try {
-        const selected = this.currentModel.Extension.SelectByID2(name, "DIMENSION", 0, 0, 0, false, 0, undefined, 0);
+        const selected = this.currentModel.Extension.SelectByID2(name, 'DIMENSION', 0, 0, 0, false, 0, undefined, 0);
         if (selected) {
           const selMgr = this.currentModel.SelectionManager;
           if (selMgr && selMgr.GetSelectedObjectCount() > 0) {
@@ -538,19 +574,19 @@ export class SolidWorksAPI {
           }
           // Don't clear selection yet - might need it for setting
         }
-      } catch (e) {
+      } catch (_e) {
         // Selection method failed
       }
     }
-    
+
     if (!dimension) {
       throw new Error(`Dimension "${name}" not found. Try format like "D1@Sketch1" or "D1@Boss-Extrude1"`);
     }
-    
+
     // Set the value - try different methods
     const newValue = value / 1000; // Convert mm to m
     let success = false;
-    
+
     try {
       if (dimension.SystemValue !== undefined) {
         dimension.SystemValue = newValue;
@@ -563,7 +599,7 @@ export class SolidWorksAPI {
       } else if (dimension.SetValue) {
         success = dimension.SetValue(newValue);
       }
-    } catch (e) {
+    } catch (_e) {
       // Try equation manager
       try {
         const eqMgr = this.currentModel.GetEquationMgr();
@@ -571,36 +607,36 @@ export class SolidWorksAPI {
           const count = eqMgr.GetCount();
           for (let i = 0; i < count; i++) {
             const eq = eqMgr.Equation[i];
-            if (eq && eq.includes(name)) {
+            if (eq?.includes(name)) {
               eqMgr.Equation[i] = `"${name}" = ${value}`;
               success = true;
               break;
             }
           }
         }
-      } catch (e2) {
+      } catch (_e2) {
         // Equation manager failed
       }
     }
-    
+
     // Clear selection if we used it
     try {
       this.currentModel.ClearSelection2(true);
-    } catch (e) {
+    } catch (_e) {
       // Ignore clear selection errors
     }
-    
+
     if (!success) {
       throw new Error(`Failed to set dimension "${name}" to ${value}mm`);
     }
-    
+
     this.currentModel.EditRebuild3();
   }
-  
+
   // Export operations
   exportFile(filePath: string, format: string): void {
     if (!this.currentModel) throw new Error('No model open');
-    
+
     try {
       // Ensure the model is saved first
       const currentPath = this.currentModel.GetPathName();
@@ -611,14 +647,14 @@ export class SolidWorksAPI {
         const tempPath = filePath.replace(/\.[^.]+$/, ext);
         this.currentModel.SaveAs3(tempPath, 0, 1);
       }
-      
+
       const ext = format.toLowerCase();
       let success = false;
-      let errors = 0;
-      let warnings = 0;
-      
+      const errors = 0;
+      const warnings = 0;
+
       // Try different export methods based on format
-      switch(ext) {
+      switch (ext) {
         case 'step':
         case 'stp':
           // Method 1: Try SaveAs3 with proper file extension
@@ -628,7 +664,7 @@ export class SolidWorksAPI {
               // Method 2: Try Extension.SaveAs with swSaveAsCurrentVersion flag
               success = this.currentModel.Extension.SaveAs(filePath, 0, 2, undefined, errors, warnings);
             }
-          } catch (e) {
+          } catch (_e) {
             // Method 3: Try GetExportFileData approach
             try {
               const exportData = this.swApp.GetExportFileData(1);
@@ -641,7 +677,7 @@ export class SolidWorksAPI {
             }
           }
           break;
-          
+
         case 'iges':
         case 'igs':
           // Method 1: Try SaveAs3 with proper flags
@@ -655,7 +691,7 @@ export class SolidWorksAPI {
             throw new Error(`Failed to export to IGES: ${e}`);
           }
           break;
-          
+
         case 'stl':
           // STL specific - try different methods
           try {
@@ -665,7 +701,7 @@ export class SolidWorksAPI {
               // Method 2: Try SaveAs4 if available
               try {
                 success = this.currentModel.SaveAs4(filePath, 0, 2, errors, warnings);
-              } catch (e2) {
+              } catch (_e2) {
                 // Method 3: Try Extension.SaveAs
                 success = this.currentModel.Extension.SaveAs(filePath, 0, 2, undefined, errors, warnings);
               }
@@ -674,11 +710,12 @@ export class SolidWorksAPI {
             throw new Error(`Failed to export to STL: ${e}`);
           }
           break;
-          
-        case 'pdf':
+
+        case 'pdf': {
           // PDF export requires drawing
           const docType = this.currentModel.GetType();
-          if (docType !== 3) { // 3 = swDocDRAWING
+          if (docType !== 3) {
+            // 3 = swDocDRAWING
             throw new Error('PDF export requires a drawing document');
           }
           try {
@@ -690,7 +727,8 @@ export class SolidWorksAPI {
             throw new Error(`Failed to export to PDF: ${e}`);
           }
           break;
-          
+        }
+
         case 'dxf':
         case 'dwg':
           // DXF/DWG export - mainly for drawings
@@ -703,11 +741,11 @@ export class SolidWorksAPI {
             throw new Error(`Failed to export to ${format.toUpperCase()}: ${e}`);
           }
           break;
-          
+
         default:
           throw new Error(`Unsupported export format: ${format}`);
       }
-      
+
       if (!success) {
         throw new Error(`Failed to export to ${format.toUpperCase()}: Export returned false`);
       }
@@ -715,60 +753,61 @@ export class SolidWorksAPI {
       throw new Error(`Export failed: ${error}`);
     }
   }
-  
+
   // VBA operations
-  runMacro(macroPath: string, moduleName: string, procedureName: string, args: any[] = []): any {
+  runMacro(macroPath: string, moduleName: string, procedureName: string, _args: any[] = []): any {
     if (!this.swApp) throw new Error('Not connected to SolidWorks');
-    
+
     const result = this.swApp.RunMacro2(
       macroPath,
       moduleName,
       procedureName,
       1, // swRunMacroOption
-      0  // error
+      0 // error
     );
-    
+
     return result;
   }
-  
+
   // Mass properties
   getMassProperties(): any {
     this.ensureCurrentModel();
     if (!this.currentModel) throw new Error('No model open');
-    
+
     // Check document type - mass properties only work for parts and assemblies
     const docType = this.currentModel.GetType();
-    if (docType !== 1 && docType !== 2) { // 1=Part, 2=Assembly
+    if (docType !== 1 && docType !== 2) {
+      // 1=Part, 2=Assembly
       throw new Error('Mass properties only available for parts and assemblies');
     }
-    
+
     try {
       // Get the modeler extension
       const modeler = this.currentModel.Extension;
       if (!modeler) {
         throw new Error('Cannot access model extension');
       }
-      
+
       // Create mass property object
       let massProps = null;
-      
+
       try {
         // Method 1: Try CreateMassProperty
         massProps = modeler.CreateMassProperty();
-      } catch (e) {
+      } catch (_e) {
         // Method 2: Try CreateMassProperty2
         try {
           massProps = modeler.CreateMassProperty2();
-        } catch (e2) {
+        } catch (_e2) {
           // Method 3: Try getting it from the model directly
           massProps = this.currentModel.GetMassProperties();
         }
       }
-      
+
       if (!massProps) {
         throw new Error('Failed to create mass property object');
       }
-      
+
       // Update mass properties if method exists
       try {
         if (massProps.Update) {
@@ -780,31 +819,31 @@ export class SolidWorksAPI {
             }
           }
         }
-      } catch (e) {
+      } catch (_e) {
         // Update might not be needed
       }
-      
+
       // Get the values with error handling
       const result: any = {};
-      
+
       try {
         result.mass = massProps.Mass;
-      } catch (e) {
+      } catch (_e) {
         result.mass = 0;
       }
-      
+
       try {
         result.volume = massProps.Volume;
-      } catch (e) {
+      } catch (_e) {
         result.volume = 0;
       }
-      
+
       try {
         result.surfaceArea = massProps.SurfaceArea;
-      } catch (e) {
+      } catch (_e) {
         result.surfaceArea = 0;
       }
-      
+
       try {
         const com = massProps.CenterOfMass;
         if (com && Array.isArray(com) && com.length >= 3) {
@@ -816,16 +855,16 @@ export class SolidWorksAPI {
         } else {
           result.centerOfMass = { x: 0, y: 0, z: 0 };
         }
-      } catch (e) {
+      } catch (_e) {
         result.centerOfMass = { x: 0, y: 0, z: 0 };
       }
-      
+
       try {
         result.density = massProps.Density;
-      } catch (e) {
+      } catch (_e) {
         result.density = 0;
       }
-      
+
       try {
         const moi = massProps.MomentOfInertia;
         if (moi && Array.isArray(moi) && moi.length >= 9) {
@@ -838,23 +877,23 @@ export class SolidWorksAPI {
             Iyz: moi[5],
             Izx: moi[6],
             Izy: moi[7],
-            Izz: moi[8]
+            Izz: moi[8],
           };
         }
-      } catch (e) {
+      } catch (_e) {
         // Moments of inertia might not be available
       }
-      
+
       return result;
     } catch (error) {
       throw new Error(`Failed to get mass properties: ${error}`);
     }
   }
-  
+
   // Helper to ensure current model is set
   private ensureCurrentModel(): void {
     if (!this.swApp) return;
-    
+
     // Always try to sync with the active document
     try {
       const activeDoc = this.swApp.ActiveDoc;
@@ -874,11 +913,11 @@ export class SolidWorksAPI {
               this.currentModel = docs[0];
             }
           }
-        } catch (e2) {
+        } catch (_e2) {
           // GetDocumentCount might not be available
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // ActiveDoc might throw if no documents are open
       // Keep the current model if we have one
       if (!this.currentModel) {
@@ -891,19 +930,19 @@ export class SolidWorksAPI {
               this.currentModel = modelWindow.ModelDoc;
             }
           }
-        } catch (e3) {
+        } catch (_e3) {
           // Frame method might not work
         }
       }
     }
   }
-  
+
   // Helper to get current model
   getCurrentModel(): any {
     this.ensureCurrentModel();
     return this.currentModel;
   }
-  
+
   // Helper to get SolidWorks app
   getApp(): any {
     return this.swApp;

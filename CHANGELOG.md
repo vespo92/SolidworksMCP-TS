@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-03-23
+
+### Fixed
+- Removed hardcoded user-specific file path from extrusion error message (Issue #14)
+- Error now includes actual failure details instead of pointing to a non-existent local file
+
+### Changed
+- Rewrote README.md to honestly reflect project status (alpha/experimental)
+- Removed fabricated performance metrics and unverified success rate claims
+- Added clear "What Has Worked" vs "Untested" status for all tool categories
+- Rewrote TESTING.md with honest assessment of test coverage gaps and prioritized testing checklist
+- Fixed stale repository URLs in CONTRIBUTING.md
+- **Replaced ESLint + Prettier with Biome** for faster, unified lint + format
+- Moved `winax` from dependencies to `optionalDependencies` (allows `npm install` on non-Windows)
+- Removed eslint, prettier, and typescript-eslint devDependencies
+- Cleaned up tsconfig.json exclude list (removed references to deleted files)
+- Fixed all test failures (env var isolation, test expectations matching actual code behavior)
+- Removed dead adapter test that imported modules deleted in v3.1.0
+- Rewrote version test to not require full server initialization
+- Applied Biome auto-fixes across 52 source files (import types, node: protocol, formatting)
+- Fixed `console.error` in solidworks-config.ts (was polluting test output)
+- Fixed Handlebars helpers to use rest params instead of `arguments`
+- Added `npm run check` script (typecheck + lint in one command)
+
 ## [3.1.0] - 2026-03-11
 
 ### Fixed

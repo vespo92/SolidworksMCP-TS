@@ -1,319 +1,107 @@
 # Testing Guide
 
-This guide explains how to test the SolidWorks MCP Server in different scenarios - with and without SolidWorks installed.
+## Current State
 
-## Table of Contents
+Testing is an area that needs significant work. Here's an honest assessment:
 
-- [Quick Start](#quick-start)
-- [Testing Without SolidWorks](#testing-without-solidworks)
-- [Testing With SolidWorks](#testing-with-solidworks)
-- [CI/CD Testing](#cicd-testing)
-- [Version Testing](#version-testing)
-- [Troubleshooting](#troubleshooting)
+- **Unit tests**: A handful exist for config and environment utilities. They run against mock adapters and do not exercise real SolidWorks COM calls.
+- **Integration tests**: Test files exist but require a Windows machine with SolidWorks installed. These have not been run in any automated CI pipeline.
+- **E2E tests**: No comprehensive end-to-end workflow tests exist yet.
+- **Mock adapter**: Simulates SolidWorks behavior for CI, but mock fidelity to real SolidWorks is unknown for most operations.
 
----
+**Bottom line**: Passing mock tests does not mean a tool works against real SolidWorks. COM interop has many quirks that mocks don't capture.
 
-## Quick Start
+## Running Tests
 
-### Prerequisites
-
-- Node.js 20.x or higher
-- npm or yarn
-
-### Install Dependencies
+### Unit Tests (No SolidWorks Required)
 
 ```bash
-npm install
-```
-
-### Run Unit Tests (No SolidWorks Required)
-
-```bash
-# Run all tests with mocks
+# Run all tests with mock adapter
 USE_MOCK_SOLIDWORKS=true npm test
 
-# Run in watch mode
+# Watch mode
 npm run test:watch
 
-# Generate coverage report
+# Coverage report
 npm run test:coverage
 ```
 
----
-
-## Testing Without SolidWorks
-
-Perfect for CI/CD, development, and contributors who don't have SolidWorks installed.
-
-### Environment Setup
-
-Create a `.env` file:
-
-```env
-USE_MOCK_SOLIDWORKS=true
-SOLIDWORKS_VERSION=2024
-MOCK_SIMULATE_ERRORS=false
-```
-
-### Running Tests
+### Integration Tests (Requires Windows + SolidWorks)
 
 ```bash
-# All unit tests
-npm test
-
-# Specific test file
-npm test -- solidworks-config.test.ts
-
-# With coverage
-npm run test:coverage
-```
-
-### Mock Adapter
-
-The mock adapter simulates SolidWorks behavior:
-
-```typescript
-import { createMockSolidWorksAdapter } from './src/adapters/mock-solidworks-adapter.js';
-
-// Create mock for SolidWorks 2024
-const mock = createMockSolidWorksAdapter({ version: '2024' });
-
-// Get mock application
-const app = mock.getApplication();
-
-// Use like real SolidWorks API
-const version = app.RevisionNumber(); // Returns "2024 SP5.0"
-```
-
-### Testing Different Scenarios
-
-```typescript
-// Test error handling
-const mockWithErrors = createMockSolidWorksAdapter({
-  version: '2024',
-  simulateErrors: true
-});
-
-// Test failure scenarios
-const mockWithFailures = createMockSolidWorksAdapter({
-  failOperations: true
-});
-
-// Test async behavior
-const mockWithDelay = createMockSolidWorksAdapter({
-  delayMs: 100
-});
-```
-
----
-
-## Testing With SolidWorks
-
-For integration testing with real SolidWorks installation.
-
-### Prerequisites
-
-- Windows OS
-- SolidWorks 2019-2025 installed
-- SolidWorks license active
-
-### Environment Setup
-
-Create a `.env` file:
-
-```env
+# Set up .env
 USE_MOCK_SOLIDWORKS=false
-SOLIDWORKS_VERSION=2024  # Your installed version
+SOLIDWORKS_VERSION=2024
 LOG_LEVEL=debug
-```
 
-### Running Integration Tests
-
-```bash
 # Run integration tests
 npm run test:integration
-
-# With specific version
-SOLIDWORKS_VERSION=2023 npm run test:integration
 ```
 
 ### Manual Testing
 
-1. Start the MCP server:
-   ```bash
-   npm run dev
-   ```
+The most reliable way to verify tools currently:
 
-2. Test individual tools via MCP client
+1. Start the MCP server: `npm run dev`
+2. Connect via Claude Desktop or another MCP client
+3. Call tools one at a time and verify SolidWorks behavior
+4. Check logs: `tail -f logs/solidworks-mcp.log`
 
-3. Check logs for detailed information:
-   ```bash
-   tail -f logs/solidworks-mcp.log
-   ```
+## What Needs Testing
 
----
+This is a non-exhaustive list of areas that need real SolidWorks validation:
 
-## CI/CD Testing
+### High Priority
+- [ ] **create_part / create_assembly / create_drawing** - Document creation
+- [ ] **create_sketch** on all standard planes (Front, Top, Right)
+- [ ] **add_line / add_circle / add_rectangle / add_arc** - Basic sketch geometry
+- [ ] **create_extrusion** - Simple boss extrude from a sketch
+- [ ] **create_extrusion_advanced** - VBA macro fallback path for 13+ params
+- [ ] **export_file** - STEP, STL, PDF export from a part
 
-### GitHub Actions
+### Medium Priority
+- [ ] **create_revolve** - Simple and complex (thin feature) revolves
+- [ ] **create_sweep / create_loft** - Always uses macro path
+- [ ] **create_fillet / create_chamfer** - Edge selection and feature creation
+- [ ] **add_constraints / dimension_sketch** - Sketch constraints and dimensions
+- [ ] **get_mass_properties** - Requires a solid body to measure
+- [ ] **create_drawing_from_model** - Drawing generation from part/assembly
 
-The project includes GitHub Actions workflows for automated testing.
+### Lower Priority
+- [ ] **VBA generation tools** - Verify generated VBA runs in SolidWorks macro editor
+- [ ] **batch_export** - Multi-config export
+- [ ] **check_interference** - Assembly interference checks
+- [ ] **measure_distance** - Entity-to-entity measurement
+- [ ] **Pattern features** - Linear and circular patterns
+- [ ] **Configuration management** - Create/switch configurations
 
-#### Main CI Workflow
-
-Tests against multiple SolidWorks versions using mocks:
-
-```yaml
-# Runs on: push, pull_request
-# Tests: SW 2021, 2022, 2023, 2024, 2025
-# Uses: Mock adapters (no SolidWorks required)
-```
-
-#### Integration Tests Workflow
-
-For testing with real SolidWorks (requires self-hosted runner):
-
-```yaml
-# Trigger: Manual or scheduled
-# Requires: Windows runner with SolidWorks installed
-# Runner labels: [self-hosted, windows, solidworks]
-```
-
-### Setting Up Self-Hosted Runner
-
-For integration tests with real SolidWorks:
-
-1. Set up Windows machine with SolidWorks
-2. Install GitHub Actions runner
-3. Add labels: `windows`, `solidworks`
-4. Configure runner to run as service
-
-```powershell
-# Install runner
-./config.cmd --url https://github.com/your-org/repo --token YOUR_TOKEN --labels windows,solidworks
-
-# Run as service
-./svc.cmd install
-./svc.cmd start
-```
-
----
-
-## Version Testing
-
-### Testing Multiple SolidWorks Versions
-
-The project supports SolidWorks 2019-2025. Test against different versions:
-
-```bash
-# Test SW 2021
-SOLIDWORKS_VERSION=2021 npm test
-
-# Test SW 2023
-SOLIDWORKS_VERSION=2023 npm test
-
-# Test SW 2025
-SOLIDWORKS_VERSION=2025 npm test
-```
-
-### Version Compatibility Matrix
-
-| Version | Mock Support | Integration Tests | Status |
-|---------|--------------|-------------------|--------|
-| 2019    | ✅ Full      | ⚠️ Manual         | Supported |
-| 2020    | ✅ Full      | ⚠️ Manual         | Supported |
-| 2021    | ✅ Full      | ✅ Automated      | Supported |
-| 2022    | ✅ Full      | ✅ Automated      | Supported |
-| 2023    | ✅ Full      | ✅ Automated      | Supported |
-| 2024    | ✅ Full      | ✅ Automated      | Primary   |
-| 2025    | ✅ Full      | ✅ Automated      | Supported |
-
-### Version-Specific Testing
-
-```typescript
-// Test version detection
-import { SolidWorksConfig } from './src/utils/solidworks-config.js';
-import { createMockSolidWorksAdapter } from './src/adapters/mock-solidworks-adapter.js';
-
-const mock = createMockSolidWorksAdapter({ version: '2023' });
-const app = mock.getApplication();
-
-const version = SolidWorksConfig.getVersion(app);
-console.log(version);
-// { year: '2023', majorVersion: 2023, revisionNumber: '2023 SP5.0' }
-```
-
----
-
-## Test Organization
-
-### Test Types
-
-1. **Unit Tests** (`*.test.ts`)
-   - No SolidWorks required
-   - Fast execution
-   - High coverage
-   - Run in CI
-
-2. **Integration Tests** (`*.integration.test.ts`)
-   - Requires SolidWorks
-   - Slower execution
-   - End-to-end validation
-   - Manual or self-hosted runner
-
-3. **E2E Tests** (`*.e2e.test.ts`)
-   - Full workflow testing
-   - Requires SolidWorks
-   - Real document creation
-   - Manual execution
-
-### Test Structure
-
-```
-src/
-├── utils/
-│   ├── __tests__/
-│   │   ├── solidworks-config.test.ts    # Unit tests
-│   │   ├── environment.test.ts           # Unit tests
-│   │   └── *.integration.test.ts         # Integration tests
-│   ├── solidworks-config.ts
-│   └── environment.ts
-├── adapters/
-│   ├── __tests__/
-│   │   └── mock-solidworks-adapter.test.ts
-│   ├── mock-solidworks-adapter.ts
-│   └── macro-generator.ts
-└── tools/
-    ├── __tests__/
-    │   ├── drawing.test.ts               # Unit tests with mocks
-    │   └── drawing.integration.test.ts   # Integration tests
-    └── drawing.ts
-```
-
----
+### Known Failure Modes to Test
+- Calling tools with no document open
+- Calling sketch tools with no active sketch
+- Calling extrusion with no closed sketch profile
+- COM disconnection mid-operation
+- SolidWorks version differences (2021 vs 2025 API changes)
+- Large assemblies (100+ components)
 
 ## Writing Tests
 
-### Unit Test Example
+### Unit Test (Mock)
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { SolidWorksConfig } from '../solidworks-config.js';
 import { createMockSolidWorksAdapter } from '../../adapters/mock-solidworks-adapter.js';
 
 describe('SolidWorksConfig', () => {
   it('should detect version correctly', () => {
     const mock = createMockSolidWorksAdapter({ version: '2024' });
     const app = mock.getApplication();
-
     const version = SolidWorksConfig.getVersion(app);
-
     expect(version?.year).toBe('2024');
   });
 });
 ```
 
-### Integration Test Example
+### Integration Test (Real SolidWorks)
 
 ```typescript
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -334,82 +122,44 @@ describe.skipIf(process.env.USE_MOCK_SOLIDWORKS === 'true')('SolidWorks Integrat
 });
 ```
 
----
+## CI/CD
 
-## Troubleshooting
+### Current State
 
-### Tests Fail with "SolidWorks not found"
+No CI pipeline runs integration tests. The GitHub Actions workflow (if configured) only runs mock-based unit tests.
 
-**Solution:** Set `USE_MOCK_SOLIDWORKS=true`:
+### Ideal Setup (Not Yet Implemented)
 
-```bash
-USE_MOCK_SOLIDWORKS=true npm test
+A self-hosted Windows runner with SolidWorks installed would enable:
+- Automated integration tests on push/PR
+- Multi-version testing (2021-2025)
+- Regression detection for COM interop issues
+
+### Setting Up a Self-Hosted Runner
+
+If you have a Windows machine with SolidWorks:
+
+1. Install GitHub Actions runner
+2. Add labels: `windows`, `solidworks`
+3. Configure as a service
+
+```powershell
+./config.cmd --url https://github.com/vespo92/SolidworksMCP-TS --token YOUR_TOKEN --labels windows,solidworks
+./svc.cmd install
+./svc.cmd start
 ```
 
-### Mock adapter behaves differently than real SolidWorks
+## How to Contribute Test Results
 
-**Solution:** Report the issue with:
-- Expected behavior
-- Actual behavior
-- SolidWorks version
-- Test case
+If you have SolidWorks and can test:
 
-### Integration tests timeout
+1. Pick a tool from the "What Needs Testing" checklist above
+2. Run it against your SolidWorks version
+3. Open an issue with:
+   - Tool name and parameters used
+   - SolidWorks version
+   - Result (success/failure)
+   - Error messages or unexpected behavior
+   - Screenshots if relevant
 
-**Solution:**
-1. Increase timeout in test file:
-   ```typescript
-   it('long running test', { timeout: 60000 }, async () => {
-     // test code
-   });
-   ```
-
-2. Check SolidWorks is running and licensed
-
-3. Enable debug logging:
-   ```bash
-   LOG_LEVEL=debug npm run test:integration
-   ```
-
-### CI tests pass but integration tests fail
-
-This is expected! Differences between mock and real SolidWorks:
-
-1. **Mock** simulates behavior - perfect for unit tests
-2. **Real SW** has actual COM interface quirks
-3. Both are valuable for different purposes
-
----
-
-## Contributing Tests
-
-When adding new features:
-
-1. ✅ Write unit tests using mocks
-2. ✅ Test against multiple SW versions (2021-2025)
-3. ✅ Add integration tests if applicable
-4. ✅ Update this guide if needed
-
-### Test Coverage Goals
-
-- Unit tests: > 80%
-- Integration tests: Critical paths
-- E2E tests: Major workflows
-
----
-
-## Additional Resources
-
-- [Vitest Documentation](https://vitest.dev/)
-- [SolidWorks API Documentation](https://help.solidworks.com/api)
-- [GitHub Actions Documentation](https://docs.github.com/actions)
-
----
-
-## Questions?
-
-If you have questions about testing:
-
-1. Check this guide
-2. Review existing tests
-3. Open an issue with `testing` label
+Even a simple "I ran `create_part` on SW2024 and it worked" is valuable.

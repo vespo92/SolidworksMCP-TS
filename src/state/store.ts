@@ -3,10 +3,10 @@
  * Manages resource states and provides persistence
  */
 
-import { ResourceState, ResourceStatus } from '../resources/base.js';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
+import type { ResourceState, ResourceStatus } from '../resources/base.js';
 import { logger } from '../utils/logger.js';
-import * as fs from 'fs/promises';
-import * as path from 'path';
 
 export interface StateSnapshot {
   version: string;
@@ -40,7 +40,7 @@ export class ResourceStateStore {
   async setState(resourceId: string, state: ResourceState): Promise<void> {
     this.resources.set(resourceId, state);
     logger.debug(`State updated for resource: ${resourceId}`, { type: state.type, status: state.status });
-    
+
     if (this.autoSave) {
       await this.save();
     }
@@ -64,14 +64,14 @@ export class ResourceStateStore {
    * Get states by type
    */
   getStatesByType(type: string): ResourceState[] {
-    return this.getAllStates().filter(state => state.type === type);
+    return this.getAllStates().filter((state) => state.type === type);
   }
 
   /**
    * Get states by status
    */
   getStatesByStatus(status: ResourceStatus): ResourceState[] {
-    return this.getAllStates().filter(state => state.status === status);
+    return this.getAllStates().filter((state) => state.status === status);
   }
 
   /**
@@ -79,14 +79,14 @@ export class ResourceStateStore {
    */
   async removeState(resourceId: string): Promise<boolean> {
     const deleted = this.resources.delete(resourceId);
-    
+
     if (deleted) {
       logger.debug(`State removed for resource: ${resourceId}`);
       if (this.autoSave) {
         await this.save();
       }
     }
-    
+
     return deleted;
   }
 
@@ -96,7 +96,7 @@ export class ResourceStateStore {
   async clear(): Promise<void> {
     this.resources.clear();
     logger.info('All resource states cleared');
-    
+
     if (this.autoSave) {
       await this.save();
     }
@@ -109,7 +109,7 @@ export class ResourceStateStore {
     try {
       const snapshot = this.createSnapshot();
       const json = JSON.stringify(snapshot, null, 2);
-      
+
       await fs.writeFile(this.stateFilePath, json, 'utf-8');
       logger.debug(`State saved to ${this.stateFilePath}`);
     } catch (error) {
@@ -125,9 +125,9 @@ export class ResourceStateStore {
     try {
       const data = await fs.readFile(this.stateFilePath, 'utf-8');
       const snapshot = JSON.parse(data);
-      
+
       this.resources.clear();
-      
+
       // Convert array back to Map
       if (Array.isArray(snapshot.resources)) {
         for (const state of snapshot.resources) {
@@ -139,9 +139,9 @@ export class ResourceStateStore {
           this.resources.set(id, state as ResourceState);
         }
       }
-      
+
       logger.info(`State loaded from ${this.stateFilePath}`, {
-        totalResources: this.resources.size
+        totalResources: this.resources.size,
       });
     } catch (error: any) {
       if (error.code === 'ENOENT') {
@@ -159,12 +159,12 @@ export class ResourceStateStore {
   createSnapshot(): StateSnapshot {
     const byType: Record<string, number> = {};
     const byStatus: Record<string, number> = {};
-    
+
     for (const state of this.resources.values()) {
       byType[state.type] = (byType[state.type] || 0) + 1;
       byStatus[state.status] = (byStatus[state.status] || 0) + 1;
     }
-    
+
     return {
       version: '1.0.0',
       timestamp: new Date().toISOString(),
@@ -172,8 +172,8 @@ export class ResourceStateStore {
       metadata: {
         totalResources: this.resources.size,
         byType,
-        byStatus
-      }
+        byStatus,
+      },
     };
   }
 
@@ -209,7 +209,7 @@ export class ResourceStateStore {
       byType: snapshot.metadata.byType,
       byStatus: snapshot.metadata.byStatus,
       oldestResource: this.getOldestResource(),
-      newestResource: this.getNewestResource()
+      newestResource: this.getNewestResource(),
     };
   }
 
@@ -218,13 +218,13 @@ export class ResourceStateStore {
    */
   private getOldestResource(): ResourceState | undefined {
     let oldest: ResourceState | undefined;
-    
+
     for (const state of this.resources.values()) {
       if (!oldest || state.metadata.createdAt < oldest.metadata.createdAt) {
         oldest = state;
       }
     }
-    
+
     return oldest;
   }
 
@@ -233,13 +233,13 @@ export class ResourceStateStore {
    */
   private getNewestResource(): ResourceState | undefined {
     let newest: ResourceState | undefined;
-    
+
     for (const state of this.resources.values()) {
       if (!newest || state.metadata.createdAt > newest.metadata.createdAt) {
         newest = state;
       }
     }
-    
+
     return newest;
   }
 
@@ -254,17 +254,17 @@ export class ResourceStateStore {
     createdBefore?: string;
   }): ResourceState[] {
     let results = this.getAllStates();
-    
+
     if (filters.type) {
-      results = results.filter(s => s.type === filters.type);
+      results = results.filter((s) => s.type === filters.type);
     }
-    
+
     if (filters.status) {
-      results = results.filter(s => s.status === filters.status);
+      results = results.filter((s) => s.status === filters.status);
     }
-    
+
     if (filters.tags) {
-      results = results.filter(s => {
+      results = results.filter((s) => {
         for (const [key, value] of Object.entries(filters.tags!)) {
           if (s.metadata.tags[key] !== value) {
             return false;
@@ -273,15 +273,15 @@ export class ResourceStateStore {
         return true;
       });
     }
-    
+
     if (filters.createdAfter) {
-      results = results.filter(s => s.metadata.createdAt >= filters.createdAfter!);
+      results = results.filter((s) => s.metadata.createdAt >= filters.createdAfter!);
     }
-    
+
     if (filters.createdBefore) {
-      results = results.filter(s => s.metadata.createdAt <= filters.createdBefore!);
+      results = results.filter((s) => s.metadata.createdAt <= filters.createdBefore!);
     }
-    
+
     return results;
   }
 
@@ -301,18 +301,18 @@ export class ResourceStateStore {
   async importFromJSON(filePath: string): Promise<void> {
     const data = await fs.readFile(filePath, 'utf-8');
     const snapshot = JSON.parse(data);
-    
+
     // Merge with existing states
     if (Array.isArray(snapshot.resources)) {
       for (const state of snapshot.resources) {
         this.resources.set(state.id, state);
       }
     }
-    
+
     logger.info(`States imported from ${filePath}`, {
-      imported: snapshot.resources.length || 0
+      imported: snapshot.resources.length || 0,
     });
-    
+
     if (this.autoSave) {
       await this.save();
     }

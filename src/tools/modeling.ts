@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SolidWorksAPI } from '../solidworks/api.js';
+import type { SolidWorksAPI } from '../solidworks/api.js';
 
 export const modelingTools = [
   {
@@ -17,12 +17,12 @@ export const modelingTools = [
       }
     },
   },
-  
+
   {
     name: 'create_part',
     description: 'Create a new SolidWorks part document',
     inputSchema: z.object({}),
-    handler: (args: any, swApi: SolidWorksAPI) => {
+    handler: (_args: any, swApi: SolidWorksAPI) => {
       try {
         const model = swApi.createPart();
         return `Created new part: ${model.name}`;
@@ -31,7 +31,7 @@ export const modelingTools = [
       }
     },
   },
-  
+
   {
     name: 'close_model',
     description: 'Close the current model with option to save',
@@ -45,7 +45,7 @@ export const modelingTools = [
         if (!currentModel) {
           return 'No active model to close';
         }
-        
+
         // Get title safely before closing
         let modelTitle = 'Unknown';
         try {
@@ -55,10 +55,10 @@ export const modelingTools = [
             const path = currentModel.GetPathName();
             modelTitle = path ? path.split('\\').pop() || 'Unknown' : 'Unknown';
           }
-        } catch (e) {
+        } catch (_e) {
           // Title might not be available
         }
-        
+
         swApi.closeModel(args.save);
         return `Model "${modelTitle}" closed successfully`;
       } catch (error) {
@@ -66,7 +66,7 @@ export const modelingTools = [
       }
     },
   },
-  
+
   {
     name: 'create_extrusion',
     description: 'Create an extrusion feature',
@@ -84,7 +84,7 @@ export const modelingTools = [
       }
     },
   },
-  
+
   {
     name: 'get_dimension',
     description: 'Get the value of a dimension',
@@ -100,7 +100,7 @@ export const modelingTools = [
       }
     },
   },
-  
+
   {
     name: 'set_dimension',
     description: 'Set the value of a dimension',
@@ -117,7 +117,7 @@ export const modelingTools = [
       }
     },
   },
-  
+
   {
     name: 'rebuild_model',
     description: 'Rebuild the current model',
@@ -128,20 +128,20 @@ export const modelingTools = [
       try {
         const model = swApi.getCurrentModel();
         if (!model) throw new Error('No model open');
-        
+
         // FIX: Use correct SolidWorks API methods
         let success = false;
-        
+
         if (args.force) {
           // Use ForceRebuild3 for forced rebuild
           try {
             success = model.ForceRebuild3(false); // false = top level only
-          } catch (e) {
+          } catch (_e) {
             // If ForceRebuild3 doesn't exist, try ForceRebuild
             try {
               model.ForceRebuild();
               success = true;
-            } catch (e2) {
+            } catch (_e2) {
               // Fall back to EditRebuild
               success = model.EditRebuild();
             }
@@ -150,21 +150,21 @@ export const modelingTools = [
           // Use EditRebuild for normal rebuild
           try {
             success = model.EditRebuild();
-          } catch (e) {
+          } catch (_e) {
             // Try alternative methods
             try {
               model.Rebuild(1); // 1 = swRebuildAll
               success = true;
-            } catch (e2) {
+            } catch (_e2) {
               throw new Error('Rebuild method not available');
             }
           }
         }
-        
+
         if (!success && success !== undefined) {
           throw new Error('Rebuild failed');
         }
-        
+
         return 'Model rebuilt successfully';
       } catch (error) {
         return `Failed to rebuild model: ${error}`;
