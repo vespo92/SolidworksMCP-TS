@@ -19,7 +19,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import dotenv from 'dotenv';
 import { z } from 'zod';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { zodToJsonSchema as _zodToJsonSchema } from 'zod-to-json-schema';
+
+// Wrapper to avoid TS2589 "excessively deep" error from zod-to-json-schema generics with zod 3.25+
+const zodToJsonSchema = (schema: unknown) => _zodToJsonSchema(schema as Parameters<typeof _zodToJsonSchema>[0]);
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
