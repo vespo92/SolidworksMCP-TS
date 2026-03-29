@@ -50,7 +50,7 @@ Sub CreateExtrusion()
     Set swModel = swApp.ActiveDoc
 
     If swModel Is Nothing Then
-        MsgBox "ERROR: No active document", vbCritical, "Extrusion Macro"
+        Debug.Print "ERROR: No active document"
         Exit Sub
     End If
 
@@ -159,18 +159,17 @@ Sub CreateExtrusion()
 
     ' Check if feature was created successfully
     If swFeature Is Nothing Then
-        MsgBox "ERROR: Extrusion feature was not created. Check that a valid sketch is selected.", vbCritical, "Extrusion Macro"
+        Debug.Print "ERROR: Extrusion feature was not created. Check that a valid sketch is selected."
         Exit Sub
     End If
 
-    MsgBox "Extrusion created successfully: " & swFeature.Name, vbInformation, "Extrusion Macro"
+    Debug.Print "Extrusion created successfully: " & swFeature.Name
     Exit Sub
 
 ErrorHandler:
     If errorMsg = "" Then
         errorMsg = "Unexpected error: " & Err.Description & " (Error " & Err.Number & ")"
     End If
-    MsgBox errorMsg, vbCritical, "Extrusion Macro Error"
     Debug.Print errorMsg
 End Sub
 
@@ -209,7 +208,7 @@ Sub CreateRevolve()
     Set swModel = swApp.ActiveDoc
 
     If swModel Is Nothing Then
-        MsgBox "ERROR: No active document", vbCritical, "Revolve Macro"
+        Debug.Print "ERROR: No active document"
         Exit Sub
     End If
 
@@ -282,18 +281,18 @@ Sub CreateRevolve()
 
     ' Check if feature was created successfully
     If swFeature Is Nothing Then
-        MsgBox "ERROR: Revolve feature was not created. Check sketch and axis selection.", vbCritical, "Revolve Macro"
+        Debug.Print "ERROR: Revolve feature was not created. Check sketch and axis selection."
         Exit Sub
     End If
 
-    MsgBox "Revolve created successfully: " & swFeature.Name, vbInformation, "Revolve Macro"
+    Debug.Print "Revolve created successfully: " & swFeature.Name
     Exit Sub
 
 ErrorHandler:
     If errorMsg = "" Then
         errorMsg = "Unexpected error: " & Err.Description & " (Error " & Err.Number & ")"
     End If
-    MsgBox errorMsg, vbCritical, "Revolve Macro Error"
+    Debug.Print "Revolve error: " & errorMsg
     Debug.Print errorMsg
 End Sub
 
@@ -352,7 +351,7 @@ Sub CreateSweep()
     Set swModel = swApp.ActiveDoc
     
     If swModel Is Nothing Then
-        MsgBox "No active document"
+        Debug.Print "No active document"
         Exit Sub
     End If
     
@@ -442,7 +441,7 @@ Sub CreateLoft()
     Set swModel = swApp.ActiveDoc
     
     If swModel Is Nothing Then
-        MsgBox "No active document"
+        Debug.Print "No active document"
         Exit Sub
     End If
     
@@ -517,7 +516,7 @@ Sub Execute${methodName}()
     Set swModel = swApp.ActiveDoc
 
     If swModel Is Nothing Then
-        MsgBox "ERROR: No active document", vbCritical, "Macro Execution"
+        Debug.Print "ERROR: No active document"
         Exit Sub
     End If
 
@@ -529,16 +528,16 @@ Sub Execute${methodName}()
 
     ' Check result
     If IsEmpty(result) Or result = False Or result Is Nothing Then
-        MsgBox "WARNING: Method ${methodName} returned no result or failed", vbExclamation, "Macro Execution"
+        Debug.Print "WARNING: Method ${methodName} returned no result or failed"
     Else
-        MsgBox "Method ${methodName} executed successfully", vbInformation, "Macro Execution"
+        Debug.Print "Method ${methodName} executed successfully"
     End If
 
     Exit Sub
 
 ErrorHandler:
     errorMsg = "ERROR executing ${methodName}: " & Err.Description & " (Error " & Err.Number & ")"
-    MsgBox errorMsg, vbCritical, "Macro Execution Error"
+    Debug.Print "Macro error: " & errorMsg
     Debug.Print errorMsg
 End Sub
 `;
