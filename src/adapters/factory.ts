@@ -11,6 +11,8 @@
 import { logger } from '../utils/logger.js';
 import { CircuitBreakerAdapter } from './circuit-breaker.js';
 import { ConnectionPoolAdapter } from './connection-pool.js';
+import { EdgeJsAdapter } from './edge-adapter.js';
+import { PowerShellAdapter } from './powershell-adapter.js';
 import type { AdapterConfig, AdapterHealth, ISolidWorksAdapter } from './types.js';
 import { WinAxAdapter } from './winax-adapter.js';
 
@@ -118,6 +120,18 @@ export class AdapterFactory {
         return hybridAdapter;
       }
 
+      case 'edge-js': {
+        const edgeAdapter = new EdgeJsAdapter();
+        await edgeAdapter.connect();
+        return edgeAdapter;
+      }
+
+      case 'powershell': {
+        const psAdapter = new PowerShellAdapter();
+        await psAdapter.connect();
+        return psAdapter;
+      }
+
       default:
         throw new Error(`Unknown adapter type: ${config.type}`);
     }
@@ -134,6 +148,10 @@ export class AdapterFactory {
 
     if (systemCapabilities.hasWinAx) {
       config.type = 'winax';
+    } else if (systemCapabilities.hasDotNet) {
+      config.type = 'edge-js';
+    } else if (systemCapabilities.hasPowerShell) {
+      config.type = 'powershell';
     } else {
       config.type = 'macro-fallback';
     }
@@ -157,6 +175,7 @@ export class AdapterFactory {
     const capabilities: SystemCapabilities = {
       hasWinAx: false,
       hasDotNet: false,
+      hasPowerShell: false,
       memoryGB: 4,
       cpuCores: 2,
       osType: process.platform,
@@ -168,6 +187,30 @@ export class AdapterFactory {
       capabilities.hasWinAx = true;
     } catch (_e) {
       capabilities.hasWinAx = false;
+    }
+
+    // Check for .NET runtime (Edge.js requirement)
+    try {
+      const { execSync } = await import('node:child_process');
+      execSync('dotnet --version', { stdio: 'ignore' });
+      capabilities.hasDotNet = true;
+    } catch (_e) {
+      capabilities.hasDotNet = false;
+    }
+
+    // Check for PowerShell availability
+    try {
+      const { execSync } = await import('node:child_process');
+      execSync('powershell -Command "echo ok"', { stdio: 'ignore', timeout: 5000 });
+      capabilities.hasPowerShell = true;
+    } catch (_e) {
+      try {
+        const { execSync } = await import('node:child_process');
+        execSync('pwsh -Command "echo ok"', { stdio: 'ignore', timeout: 5000 });
+        capabilities.hasPowerShell = true;
+      } catch (_e2) {
+        capabilities.hasPowerShell = false;
+      }
     }
 
     // Get system memory
@@ -242,6 +285,7 @@ export class AdapterFactory {
 interface SystemCapabilities {
   hasWinAx: boolean;
   hasDotNet: boolean;
+  hasPowerShell: boolean;
   memoryGB: number;
   cpuCores: number;
   osType: string;
