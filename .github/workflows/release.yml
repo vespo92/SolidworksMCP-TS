@@ -32,13 +32,8 @@ jobs:
       run: npm test -- --run
     
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
-        files: |
-          dist/**
-          README.md
-          LICENSE
-          CHANGELOG.md
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
