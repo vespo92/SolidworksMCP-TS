@@ -211,6 +211,11 @@ describe('Environment Configuration', () => {
 
   describe('validateEnvironment', () => {
     it('should validate correct configuration', () => {
+      // In CI, useMock must be true to pass validation
+      if (isCI()) {
+        process.env.USE_MOCK_SOLIDWORKS = 'true';
+      }
+      resetEnvironment();
       const env = loadEnvironment();
 
       const result = validateEnvironment(env);
