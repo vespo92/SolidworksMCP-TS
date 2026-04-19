@@ -7,6 +7,7 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+// @ts-ignore
 import winax from 'winax';
 import type { SolidWorksFeature, SolidWorksModel } from '../solidworks/types.js';
 import { logger } from '../utils/logger.js';
