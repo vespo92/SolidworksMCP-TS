@@ -10,8 +10,6 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-// @ts-ignore
-import winax from 'winax';
 import type { SolidWorksFeature, SolidWorksModel } from '../solidworks/types.js';
 import { logger } from '../utils/logger.js';
 import { MacroGenerator } from './macro-generator.js';
@@ -26,6 +24,9 @@ import type {
   RevolveParameters,
   SweepParameters,
 } from './types.js';
+import { loadWinax } from './winax-loader.js';
+
+let winax: any = null;
 
 export class WinAxAdapter implements ISolidWorksAdapter {
   private swApp: any = null;
@@ -50,13 +51,13 @@ export class WinAxAdapter implements ISolidWorksAdapter {
       // Ensure temp macro directory exists
       await fs.mkdir(this.tempMacroPath, { recursive: true });
 
+      if (!winax) winax = loadWinax();
+
       // Try primary connection method
       try {
-        // @ts-ignore
         this.swApp = new winax.Object('SldWorks.Application');
       } catch (_error) {
         // Try alternative connection method
-        // @ts-ignore
         this.swApp = winax.Object('SldWorks.Application');
       }
 

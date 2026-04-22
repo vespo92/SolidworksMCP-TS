@@ -167,6 +167,10 @@ Key areas where help is needed:
 
 ## Troubleshooting
 
+For `winax` native build failures on Windows 11 Build 26200+ / VS 2022
+BuildTools 17.14+ (issue #23) and other install-time problems, see
+[TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
 ### COM Registration Issues
 ```powershell
 regsvr32 "C:\Program Files\SOLIDWORKS Corp\SOLIDWORKS\sldworks.tlb"

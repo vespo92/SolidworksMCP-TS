@@ -13,6 +13,7 @@ import { CircuitBreakerAdapter } from './circuit-breaker.js';
 import { ConnectionPoolAdapter } from './connection-pool.js';
 import type { AdapterConfig, AdapterHealth, ISolidWorksAdapter } from './types.js';
 import { WinAxAdapter } from './winax-adapter.js';
+import { isWinaxAvailable } from './winax-loader.js';
 
 /**
  * Factory for creating and managing SolidWorks adapters
@@ -162,13 +163,9 @@ export class AdapterFactory {
       osType: process.platform,
     };
 
-    // Check for winax availability
-    try {
-      require('winax');
-      capabilities.hasWinAx = true;
-    } catch (_e) {
-      capabilities.hasWinAx = false;
-    }
+    // Check for winax availability (uses the shared lazy loader so the probe
+    // result is cached alongside real adapter loads).
+    capabilities.hasWinAx = isWinaxAvailable();
 
     // Get system memory
     try {

@@ -7,8 +7,6 @@
 
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-// @ts-ignore
-import winax from 'winax';
 import type { SolidWorksFeature, SolidWorksModel } from '../solidworks/types.js';
 import { logger } from '../utils/logger.js';
 import { FeatureComplexityAnalyzer } from './feature-complexity-analyzer.js';
@@ -24,6 +22,9 @@ import type {
   RevolveParameters,
   SweepParameters,
 } from './types.js';
+import { loadWinax } from './winax-loader.js';
+
+let winax: any = null;
 
 export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   private swApp: any;
@@ -47,6 +48,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   // Connection Management
   async connect(): Promise<void> {
     try {
+      if (!winax) winax = loadWinax();
       this.swApp = new winax.Object('SldWorks.Application');
       this.swApp.Visible = true;
       logger.info('Connected to SolidWorks via Enhanced WinAx adapter');
