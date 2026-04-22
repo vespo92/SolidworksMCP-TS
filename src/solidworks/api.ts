@@ -1,10 +1,11 @@
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-// @ts-ignore
-import winax from 'winax';
+import { loadWinax } from '../adapters/winax-loader.js';
 import { logger } from '../utils/logger.js';
 import type { SolidWorksFeature, SolidWorksModel } from './types.js';
+
+let winax: any = null;
 
 export class SolidWorksAPI {
   private swApp: any;
@@ -16,16 +17,15 @@ export class SolidWorksAPI {
   }
 
   connect(): void {
+    if (!winax) winax = loadWinax();
     try {
       // Create or get running instance of SolidWorks
-      // @ts-ignore
       this.swApp = new winax.Object('SldWorks.Application');
       this.swApp.Visible = true;
       logger.info('Connected to SolidWorks');
     } catch (_error) {
       // Try alternative connection method
       try {
-        // @ts-ignore
         this.swApp = winax.Object('SldWorks.Application');
         this.swApp.Visible = true;
         logger.info('Connected to SolidWorks (alternative method)');
