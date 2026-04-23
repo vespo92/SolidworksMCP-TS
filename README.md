@@ -126,12 +126,33 @@ npm run test:watch
 
 **Current test status**: Unit tests exist for config and environment utilities. Most tool modules lack test coverage. Integration tests require a Windows machine with SolidWorks and have not been run in CI.
 
+## Adapter Options
+
+The server supports multiple COM interop adapters, selectable via the `ADAPTER_TYPE` environment variable:
+
+| Adapter | Type | Requirements | Parameter Limit | Latency |
+|---------|------|-------------|----------------|---------|
+| **WinAx** (default) | `winax` | winax npm module (Windows) | 12 params (macro fallback for more) | Low |
+| **WinAx Enhanced** | `winax-enhanced` | winax npm module (Windows) | 12 params (intelligent routing) | Low |
+| **Edge.js** | `edge-js` | edge-js + .NET runtime | **Unlimited** (C# in-process) | Low |
+| **PowerShell** | `powershell` | PowerShell 5.1+ (ships with Windows) | **Unlimited** (native COM) | Medium |
+
+**Edge.js** runs C# code in-process via the .NET CLR, giving full access to all SolidWorks API parameters (e.g., `FeatureExtrusion3` with 23 parameters) without VBA macro fallback.
+
+**PowerShell** spawns PowerShell processes for COM operations. Zero compilation needed - works on any Windows machine. Higher latency per-call but fully reliable.
+
+The adapter factory auto-detects the best available adapter, or you can specify one explicitly:
+
+```json
+{ "env": { "ADAPTER_TYPE": "powershell" } }
+```
+
 ## Known Issues & Limitations
 
 - **No CI integration testing** - Tests only run against mocks. Real SolidWorks integration tests require a self-hosted Windows runner that doesn't exist yet.
 - **winax compilation** - Must be compiled locally on each machine. No pre-built binaries.
-- **Edge.js adapter** - Defined in architecture but not implemented.
-- **PowerShell bridge** - Defined in architecture but not implemented.
+- **Edge.js adapter** - Implemented but requires validation on a Windows machine with .NET runtime and SolidWorks.
+- **PowerShell bridge** - Implemented but requires validation on a Windows machine with SolidWorks.
 - **Connection pooling / circuit breaker** - Referenced in code but not battle-tested.
 - **Performance metrics are unverified** - No real benchmarking has been done.
 
@@ -151,8 +172,8 @@ Based on development testing:
 - [ ] CI with self-hosted Windows runner
 - [ ] Validate all modeling tools end-to-end
 - [ ] Validate drawing and export tools
-- [ ] Edge.js adapter for .NET runtime path
-- [ ] PowerShell bridge as alternative COM path
+- [x] Edge.js adapter for .NET runtime path
+- [x] PowerShell bridge as alternative COM path
 - [ ] Performance benchmarking with real metrics
 
 ## Contributing
