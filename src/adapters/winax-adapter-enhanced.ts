@@ -5,12 +5,9 @@
  * based on parameter complexity analysis for ALL SolidWorks features.
  */
 
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import type { SolidWorksFeature, SolidWorksModel } from '../solidworks/types.js';
 import { logger } from '../utils/logger.js';
 import { FeatureComplexityAnalyzer } from './feature-complexity-analyzer.js';
-import { MacroGenerator } from './macro-generator.js';
 import type {
   AdapterHealth,
   AdapterResult,
@@ -24,13 +21,27 @@ import type {
 } from './types.js';
 import { loadWinax } from './winax-loader.js';
 
+const END_CONDITION_MAP: Record<string, number> = {
+  Blind: 0,
+  ThroughAll: 1,
+  UpToNext: 2,
+  UpToVertex: 3,
+  UpToSurface: 4,
+  OffsetFromSurface: 5,
+  MidPlane: 6,
+};
+
+function resolveEndCondition(value: number | string | undefined): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return END_CONDITION_MAP[value] ?? 0;
+  return 0;
+}
+
 let winax: any = null;
 
 export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   private swApp: any;
   private currentModel: any;
-  private macroGenerator: MacroGenerator;
-  private tempMacroPath: string;
   private metrics = {
     directCOMCalls: 0,
     macroFallbacks: 0,
@@ -41,8 +52,6 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
   constructor() {
     this.swApp = null;
     this.currentModel = null;
-    this.macroGenerator = new MacroGenerator();
-    this.tempMacroPath = process.env.TEMP || 'C:\\Temp';
   }
 
   // Connection Management
@@ -104,18 +113,16 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     logger.info(`Extrusion analysis: ${JSON.stringify(analysis)}`);
 
     if (analysis.strategy === 'direct-com') {
-      // Try direct COM call for simple extrusions
       try {
         return await this.createExtrusionDirect(params);
       } catch (error) {
-        logger.warn('Direct extrusion failed, falling back to macro', error);
-        return await this.createExtrusionViaMacro(params);
+        logger.warn('FeatureExtrusion2 failed, trying FeatureExtrusion3 with full args', error);
+        return await this.createExtrusionFull(params);
       }
-    } else {
-      // Complex extrusion - use macro directly
-      logger.info(`Using macro fallback: ${analysis.reason}`);
-      return await this.createExtrusionViaMacro(params);
     }
+
+    logger.info(`Using FeatureExtrusion3 (full args): ${analysis.reason}`);
+    return await this.createExtrusionFull(params);
   }
 
   private async createExtrusionDirect(params: ExtrusionParameters): Promise<SolidWorksFeature> {
@@ -159,28 +166,81 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     }
   }
 
-  private async createExtrusionViaMacro(params: ExtrusionParameters): Promise<SolidWorksFeature> {
+  private async createExtrusionFull(params: ExtrusionParameters): Promise<SolidWorksFeature> {
     const startTime = Date.now();
 
-    const macroCode = this.macroGenerator.generateExtrusionMacro(params);
-    const macroPath = path.join(this.tempMacroPath, `extrusion_${Date.now()}.swp`);
-
-    await fs.writeFile(macroPath, macroCode);
-
     try {
-      this.swApp.RunMacro2(macroPath, 'Module1', 'CreateExtrusion', 1, 0);
-      const feature = this.currentModel.FeatureByPositionReverse(0);
+      this.selectSketchForFeature();
 
-      this.metrics.macroFallbacks++;
+      const depth1 = params.depth / 1000;
+      const depth2 = (params.depth2 ?? 0) / 1000;
+      const draftRad = ((params.draft ?? 0) * Math.PI) / 180;
+      const t1 = resolveEndCondition(params.endCondition);
+      const merge = params.merge !== false;
+      const sd = !params.bothDirections;
+
+      const feature = this.currentModel.FeatureManager.FeatureExtrusion3(
+        sd,
+        params.reverse ?? false,
+        params.bothDirections ?? false,
+        t1,
+        0,
+        depth1,
+        depth2,
+        params.draftWhileExtruding ?? (params.draft ?? 0) !== 0,
+        false,
+        params.draftOutward ?? false,
+        false,
+        draftRad,
+        0,
+        params.offsetReverse ?? false,
+        false,
+        params.translateSurface ?? false,
+        false,
+        merge,
+        true,
+        true,
+        params.startCondition ?? 0,
+        0,
+        false,
+        false
+      );
+
+      if (!feature) {
+        throw new Error('FeatureExtrusion3 returned null');
+      }
+
+      if (params.thinFeature) {
+        const thinTypeMap: Record<string, number> = {
+          OneDirection: 0,
+          TwoSide: 1,
+          MidPlane: 2,
+        };
+        const thinType = thinTypeMap[params.thinType ?? 'OneDirection'] ?? 0;
+        try {
+          feature.SetThinWallType(
+            thinType,
+            (params.thinThickness ?? 1) / 1000,
+            0,
+            params.capEnds ?? false,
+            (params.capThickness ?? 1) / 1000
+          );
+        } catch (e) {
+          logger.warn(`SetThinWallType failed: ${e}`);
+        }
+      }
+
+      this.metrics.directCOMCalls++;
       this.updateResponseTime(Date.now() - startTime);
 
       return {
-        name: feature?.Name || 'Boss-Extrude1',
+        name: feature.Name || 'Boss-Extrude1',
         type: 'Extrusion',
         suppressed: false,
       };
-    } finally {
-      await fs.unlink(macroPath).catch(() => {});
+    } catch (error) {
+      this.metrics.failures++;
+      throw new Error(`FeatureExtrusion3 failed: ${error}`);
     }
   }
 
@@ -190,16 +250,7 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     const analysis = FeatureComplexityAnalyzer.determineStrategy('FeatureRevolve2', params as any);
     logger.info(`Revolve analysis: ${JSON.stringify(analysis)}`);
 
-    if (analysis.strategy === 'direct-com') {
-      try {
-        return await this.createRevolveDirect(params);
-      } catch (error) {
-        logger.warn('Direct revolve failed, falling back to macro', error);
-        return await this.createRevolveViaMacro(params);
-      }
-    } else {
-      return await this.createRevolveViaMacro(params);
-    }
+    return await this.createRevolveDirect(params);
   }
 
   private async createRevolveDirect(params: RevolveParameters): Promise<SolidWorksFeature> {
@@ -242,63 +293,58 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     }
   }
 
-  private async createRevolveViaMacro(params: RevolveParameters): Promise<SolidWorksFeature> {
-    const startTime = Date.now();
-
-    const macroCode = this.macroGenerator.generateRevolveMacro(params);
-    const macroPath = path.join(this.tempMacroPath, `revolve_${Date.now()}.swp`);
-
-    await fs.writeFile(macroPath, macroCode);
-
-    try {
-      this.swApp.RunMacro2(macroPath, 'Module1', 'CreateRevolve', 1, 0);
-      const feature = this.currentModel.FeatureByPositionReverse(0);
-
-      this.metrics.macroFallbacks++;
-      this.updateResponseTime(Date.now() - startTime);
-
-      return {
-        name: feature?.Name || 'Revolve1',
-        type: 'Revolution',
-        suppressed: false,
-      };
-    } finally {
-      await fs.unlink(macroPath).catch(() => {});
-    }
-  }
-
   async createSweep(params: SweepParameters): Promise<SolidWorksFeature> {
     if (!this.currentModel) throw new Error('No active model');
 
-    // Sweep always requires macro due to high parameter count
-    const analysis = FeatureComplexityAnalyzer.determineStrategy('InsertProtrusionSwept4', params as any);
-    logger.info(`Sweep analysis: Always complex - strategy: ${analysis.strategy}`);
-
-    return await this.createSweepViaMacro(params);
+    return await this.createSweepDirect(params);
   }
 
-  private async createSweepViaMacro(params: SweepParameters): Promise<SolidWorksFeature> {
+  private async createSweepDirect(params: SweepParameters): Promise<SolidWorksFeature> {
     const startTime = Date.now();
 
-    const macroCode = this.macroGenerator.generateSweepMacro(params);
-    const macroPath = path.join(this.tempMacroPath, `sweep_${Date.now()}.swp`);
-
-    await fs.writeFile(macroPath, macroCode);
-
     try {
-      this.swApp.RunMacro2(macroPath, 'Module1', 'CreateSweep', 1, 0);
-      const feature = this.currentModel.FeatureByPositionReverse(0);
+      const ext = this.currentModel.Extension;
+      this.currentModel.ClearSelection2(true);
 
-      this.metrics.macroFallbacks++;
+      const profileSelected = ext.SelectByID2(params.profileSketch, 'SKETCH', 0, 0, 0, false, 1, undefined, 0);
+      if (!profileSelected) throw new Error(`Profile sketch not found: ${params.profileSketch}`);
+
+      const pathSelected = ext.SelectByID2(params.pathSketch, 'SKETCH', 0, 0, 0, true, 4, undefined, 0);
+      if (!pathSelected) throw new Error(`Path sketch not found: ${params.pathSketch}`);
+
+      const twistRad = ((params.twistAngle ?? 0) * Math.PI) / 180;
+      const merge = params.merge !== false;
+
+      const feature = this.currentModel.FeatureManager.InsertProtrusionSwept4(
+        false,
+        false,
+        0,
+        twistRad,
+        false,
+        0,
+        0,
+        merge,
+        params.thinFeature ?? false,
+        (params.thinThickness ?? 0) / 1000,
+        0,
+        true,
+        false,
+        true
+      );
+
+      if (!feature) throw new Error('InsertProtrusionSwept4 returned null');
+
+      this.metrics.directCOMCalls++;
       this.updateResponseTime(Date.now() - startTime);
 
       return {
-        name: feature?.Name || 'Sweep1',
+        name: feature.Name || 'Sweep1',
         type: 'Sweep',
         suppressed: false,
       };
-    } finally {
-      await fs.unlink(macroPath).catch(() => {});
+    } catch (error) {
+      this.metrics.failures++;
+      throw new Error(`InsertProtrusionSwept4 failed: ${error}`);
     }
   }
 
@@ -312,12 +358,12 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
       try {
         return await this.createLoftDirect(params);
       } catch (error) {
-        logger.warn('Direct loft failed, falling back to macro', error);
-        return await this.createLoftViaMacro(params);
+        logger.warn('Simple loft failed, trying InsertProtrusionLoft3 with full args', error);
+        return await this.createLoftFull(params);
       }
-    } else {
-      return await this.createLoftViaMacro(params);
     }
+
+    return await this.createLoftFull(params);
   }
 
   private async createLoftDirect(params: LoftParameters): Promise<SolidWorksFeature> {
@@ -363,28 +409,57 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
     }
   }
 
-  private async createLoftViaMacro(params: LoftParameters): Promise<SolidWorksFeature> {
+  private async createLoftFull(params: LoftParameters): Promise<SolidWorksFeature> {
     const startTime = Date.now();
 
-    const macroCode = this.macroGenerator.generateLoftMacro(params);
-    const macroPath = path.join(this.tempMacroPath, `loft_${Date.now()}.swp`);
-
-    await fs.writeFile(macroPath, macroCode);
-
     try {
-      this.swApp.RunMacro2(macroPath, 'Module1', 'CreateLoft', 1, 0);
-      const feature = this.currentModel.FeatureByPositionReverse(0);
+      const ext = this.currentModel.Extension;
+      this.currentModel.ClearSelection2(true);
 
-      this.metrics.macroFallbacks++;
+      params.profiles.forEach((profile, index) => {
+        const selected = ext.SelectByID2(profile, 'SKETCH', 0, 0, 0, index > 0, 1, undefined, 0);
+        if (!selected) throw new Error(`Profile sketch not found: ${profile}`);
+      });
+
+      const guides = params.guideCurves ?? params.guides ?? [];
+      for (const guide of guides) {
+        ext.SelectByID2(guide, 'SKETCH', 0, 0, 0, true, 2, undefined, 0);
+      }
+
+      const closed = params.closed ?? params.close ?? false;
+
+      const feature = this.currentModel.FeatureManager.InsertProtrusionLoft3(
+        closed,
+        false,
+        false,
+        false,
+        false,
+        0,
+        0,
+        0,
+        0,
+        params.thinFeature ?? false,
+        (params.thinThickness ?? 0) / 1000,
+        0,
+        0,
+        params.merge !== false,
+        true,
+        true
+      );
+
+      if (!feature) throw new Error('InsertProtrusionLoft3 returned null');
+
+      this.metrics.directCOMCalls++;
       this.updateResponseTime(Date.now() - startTime);
 
       return {
-        name: feature?.Name || 'Loft1',
+        name: feature.Name || 'Loft1',
         type: 'Loft',
         suppressed: false,
       };
-    } finally {
-      await fs.unlink(macroPath).catch(() => {});
+    } catch (error) {
+      this.metrics.failures++;
+      throw new Error(`InsertProtrusionLoft3 failed: ${error}`);
     }
   }
 
