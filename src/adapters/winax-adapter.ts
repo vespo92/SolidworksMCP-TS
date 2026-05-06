@@ -8,11 +8,8 @@
  * - Connection health monitoring
  */
 
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import type { SolidWorksFeature, SolidWorksModel } from '../solidworks/types.js';
 import { logger } from '../utils/logger.js';
-import { MacroGenerator } from './macro-generator.js';
 import type {
   AdapterHealth,
   AdapterResult,
@@ -28,6 +25,22 @@ import { loadWinax } from './winax-loader.js';
 
 let winax: any = null;
 
+const END_CONDITION_MAP: Record<string, number> = {
+  Blind: 0,
+  ThroughAll: 1,
+  UpToNext: 2,
+  UpToVertex: 3,
+  UpToSurface: 4,
+  OffsetFromSurface: 5,
+  MidPlane: 6,
+};
+
+function resolveEndCondition(value: number | string | undefined): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return END_CONDITION_MAP[value] ?? 0;
+  return 0;
+}
+
 export class WinAxAdapter implements ISolidWorksAdapter {
   private swApp: any = null;
   private currentModel: any = null;
@@ -36,21 +49,11 @@ export class WinAxAdapter implements ISolidWorksAdapter {
   private successCount: number = 0;
   private lastHealthCheck: Date = new Date();
   private responseTimings: number[] = [];
-  private macroGenerator: MacroGenerator;
-  private tempMacroPath: string;
-
-  constructor() {
-    this.macroGenerator = new MacroGenerator();
-    this.tempMacroPath = path.join(process.env.TEMP || '/tmp', 'solidworks_mcp_macros');
-  }
 
   async connect(): Promise<void> {
     const startTime = Date.now();
 
     try {
-      // Ensure temp macro directory exists
-      await fs.mkdir(this.tempMacroPath, { recursive: true });
-
       if (!winax) winax = loadWinax();
 
       // Try primary connection method
@@ -488,39 +491,74 @@ export class WinAxAdapter implements ISolidWorksAdapter {
   }
 
   private async createExtrusionViaMacro(params: ExtrusionParameters): Promise<SolidWorksFeature> {
-    // Generate VBA macro for complex extrusion
-    const macroCode = this.macroGenerator.generateExtrusionMacro(params);
+    // Direct FeatureExtrusion3 call with full arg list — replaces the prior .swp roundtrip
+    // which never worked because plain-text VBA cannot satisfy SolidWorks' OLE Compound
+    // Document expectation for .swp (see issue #25).
+    this.selectSketchForExtrusion();
 
-    // Save macro to temp file
-    const macroPath = path.join(this.tempMacroPath, `extrusion_${Date.now()}.swp`);
-    await fs.writeFile(macroPath, macroCode);
+    const depth1 = params.depth / 1000;
+    const depth2 = (params.depth2 ?? 0) / 1000;
+    const draftRad = ((params.draft ?? 0) * Math.PI) / 180;
+    const t1 = resolveEndCondition(params.endCondition);
+    const merge = params.merge !== false;
+    const sd = !params.bothDirections;
 
-    try {
-      // Execute the macro
-      const _result = this.swApp.RunMacro2(
-        macroPath,
-        'Module1',
-        'CreateExtrusion',
-        1, // swRunMacroOption
-        0 // error
-      );
+    const feature = this.currentModel.FeatureManager.FeatureExtrusion3(
+      sd,
+      params.reverse ?? false,
+      params.bothDirections ?? false,
+      t1,
+      0,
+      depth1,
+      depth2,
+      params.draftWhileExtruding ?? (params.draft ?? 0) !== 0,
+      false,
+      params.draftOutward ?? false,
+      false,
+      draftRad,
+      0,
+      params.offsetReverse ?? false,
+      false,
+      params.translateSurface ?? false,
+      false,
+      merge,
+      true,
+      true,
+      params.startCondition ?? 0,
+      0,
+      false,
+      false
+    );
 
-      // Get the last feature created
-      const feature = this.currentModel.FeatureByPositionReverse(0);
+    if (!feature) {
+      throw new Error('FeatureExtrusion3 returned null');
+    }
 
-      return {
-        name: feature?.Name || 'Boss-Extrude1',
-        type: 'Extrusion',
-        suppressed: false,
+    if (params.thinFeature) {
+      const thinTypeMap: Record<string, number> = {
+        OneDirection: 0,
+        TwoSide: 1,
+        MidPlane: 2,
       };
-    } finally {
-      // Clean up temp macro file
+      const thinType = thinTypeMap[params.thinType ?? 'OneDirection'] ?? 0;
       try {
-        await fs.unlink(macroPath);
-      } catch (_e) {
-        // Ignore cleanup errors
+        feature.SetThinWallType(
+          thinType,
+          (params.thinThickness ?? 1) / 1000,
+          0,
+          params.capEnds ?? false,
+          (params.capThickness ?? 1) / 1000
+        );
+      } catch (e) {
+        logger.warn(`SetThinWallType failed: ${e}`);
       }
     }
+
+    return {
+      name: feature.Name || 'Boss-Extrude1',
+      type: 'Extrusion',
+      suppressed: false,
+    };
   }
 
   private selectSketchForExtrusion(): boolean {
@@ -565,65 +603,133 @@ export class WinAxAdapter implements ISolidWorksAdapter {
   async createRevolve(params: RevolveParameters): Promise<SolidWorksFeature> {
     if (!this.currentModel) throw new Error('No active model');
 
-    // For revolve, we'll use macro fallback for now
-    const macroCode = this.macroGenerator.generateRevolveMacro(params);
-    const macroPath = path.join(this.tempMacroPath, `revolve_${Date.now()}.swp`);
-    await fs.writeFile(macroPath, macroCode);
+    this.selectSketchForExtrusion();
 
-    try {
-      this.swApp.RunMacro2(macroPath, 'Module1', 'CreateRevolve', 1, 0);
-      const feature = this.currentModel.FeatureByPositionReverse(0);
-
-      return {
-        name: feature?.Name || 'Revolve1',
-        type: 'Revolution',
-        suppressed: false,
-      };
-    } finally {
-      await fs.unlink(macroPath).catch(() => {});
+    if (params.axis) {
+      this.currentModel.Extension.SelectByID2(params.axis, 'AXIS', 0, 0, 0, true, 16, undefined, 0);
     }
+
+    const angleRad = (params.angle * Math.PI) / 180;
+    const direction = params.direction;
+    const isReverse = direction === 'Reverse' || direction === 1;
+    const isBoth = direction === 'Both' || direction === 2;
+    const merge = params.merge !== false;
+
+    const feature = this.currentModel.FeatureManager.FeatureRevolve2(
+      !isBoth,
+      isReverse,
+      isBoth,
+      false,
+      params.thinFeature ?? false,
+      angleRad,
+      0,
+      0,
+      0,
+      0,
+      0,
+      merge
+    );
+
+    if (!feature) {
+      throw new Error('FeatureRevolve2 returned null');
+    }
+
+    return {
+      name: feature.Name || 'Revolve1',
+      type: 'Revolution',
+      suppressed: false,
+    };
   }
 
   async createSweep(params: SweepParameters): Promise<SolidWorksFeature> {
     if (!this.currentModel) throw new Error('No active model');
 
-    const macroCode = this.macroGenerator.generateSweepMacro(params);
-    const macroPath = path.join(this.tempMacroPath, `sweep_${Date.now()}.swp`);
-    await fs.writeFile(macroPath, macroCode);
+    const ext = this.currentModel.Extension;
+    this.currentModel.ClearSelection2(true);
 
-    try {
-      this.swApp.RunMacro2(macroPath, 'Module1', 'CreateSweep', 1, 0);
-      const feature = this.currentModel.FeatureByPositionReverse(0);
+    const profileSelected = ext.SelectByID2(params.profileSketch, 'SKETCH', 0, 0, 0, false, 1, undefined, 0);
+    if (!profileSelected) throw new Error(`Profile sketch not found: ${params.profileSketch}`);
 
-      return {
-        name: feature?.Name || 'Sweep1',
-        type: 'Sweep',
-        suppressed: false,
-      };
-    } finally {
-      await fs.unlink(macroPath).catch(() => {});
+    const pathSelected = ext.SelectByID2(params.pathSketch, 'SKETCH', 0, 0, 0, true, 4, undefined, 0);
+    if (!pathSelected) throw new Error(`Path sketch not found: ${params.pathSketch}`);
+
+    const twistRad = ((params.twistAngle ?? 0) * Math.PI) / 180;
+    const merge = params.merge !== false;
+
+    const feature = this.currentModel.FeatureManager.InsertProtrusionSwept4(
+      false,
+      false,
+      0,
+      twistRad,
+      false,
+      0,
+      0,
+      merge,
+      params.thinFeature ?? false,
+      (params.thinThickness ?? 0) / 1000,
+      0,
+      true,
+      false,
+      true
+    );
+
+    if (!feature) {
+      throw new Error('InsertProtrusionSwept4 returned null');
     }
+
+    return {
+      name: feature.Name || 'Sweep1',
+      type: 'Sweep',
+      suppressed: false,
+    };
   }
 
   async createLoft(params: LoftParameters): Promise<SolidWorksFeature> {
     if (!this.currentModel) throw new Error('No active model');
 
-    const macroCode = this.macroGenerator.generateLoftMacro(params);
-    const macroPath = path.join(this.tempMacroPath, `loft_${Date.now()}.swp`);
-    await fs.writeFile(macroPath, macroCode);
+    const ext = this.currentModel.Extension;
+    this.currentModel.ClearSelection2(true);
 
-    try {
-      this.swApp.RunMacro2(macroPath, 'Module1', 'CreateLoft', 1, 0);
-      const feature = this.currentModel.FeatureByPositionReverse(0);
+    params.profiles.forEach((profile, index) => {
+      const selected = ext.SelectByID2(profile, 'SKETCH', 0, 0, 0, index > 0, 1, undefined, 0);
+      if (!selected) throw new Error(`Profile sketch not found: ${profile}`);
+    });
 
-      return {
-        name: feature?.Name || 'Loft1',
-        type: 'Loft',
-        suppressed: false,
-      };
-    } finally {
-      await fs.unlink(macroPath).catch(() => {});
+    const guides = params.guideCurves ?? params.guides ?? [];
+    for (const guide of guides) {
+      ext.SelectByID2(guide, 'SKETCH', 0, 0, 0, true, 2, undefined, 0);
     }
+
+    const closed = params.closed ?? params.close ?? false;
+
+    const feature = this.currentModel.FeatureManager.InsertProtrusionLoft3(
+      closed,
+      false,
+      false,
+      false,
+      false,
+      0,
+      0,
+      0,
+      0,
+      params.thinFeature ?? false,
+      (params.thinThickness ?? 0) / 1000,
+      0,
+      0,
+      params.merge !== false,
+      true,
+      true
+    );
+
+    if (!feature) {
+      throw new Error('InsertProtrusionLoft3 returned null');
+    }
+
+    return {
+      name: feature.Name || 'Loft1',
+      type: 'Loft',
+      suppressed: false,
+    };
   }
 
   async createSketch(plane: string): Promise<string> {
