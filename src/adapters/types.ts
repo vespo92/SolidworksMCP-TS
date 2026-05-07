@@ -502,7 +502,7 @@ export interface MassProperties {
  * Adapter configuration
  */
 export interface AdapterConfig {
-  type: 'winax' | 'macro-fallback' | 'hybrid' | 'winax-enhanced';
+  type: 'winax' | 'macro-fallback' | 'hybrid' | 'winax-enhanced' | 'edge-js' | 'powershell';
   enableCircuitBreaker?: boolean;
   circuitBreakerThreshold?: number;
   circuitBreakerTimeout?: number;
