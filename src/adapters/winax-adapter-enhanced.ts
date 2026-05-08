@@ -198,11 +198,10 @@ export class EnhancedWinAxAdapter implements ISolidWorksAdapter {
         params.translateSurface ?? false,
         false,
         merge,
-        true,
+        false,
         true,
         params.startCondition ?? 0,
         0,
-        false,
         false
       );
 
