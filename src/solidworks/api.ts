@@ -1,6 +1,3 @@
-import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { loadWinax } from '../adapters/winax-loader.js';
 import { logger } from '../utils/logger.js';
 import type { SolidWorksFeature, SolidWorksModel } from './types.js';
@@ -209,7 +206,7 @@ export class SolidWorksAPI {
   }
 
   // Feature operations
-  createExtrude(depth: number, _draft: number = 0, reverse: boolean = false): SolidWorksFeature {
+  createExtrude(depth: number, draft: number = 0, reverse: boolean = false): SolidWorksFeature {
     if (!this.currentModel) throw new Error('No model open');
 
     try {
@@ -303,88 +300,78 @@ export class SolidWorksAPI {
 
       // Convert depth to meters
       const depthInMeters = depth / 1000;
+      const draftRad = (draft * Math.PI) / 180;
 
       let feature = null;
+      const directErrors: string[] = [];
 
-      // Try different extrusion methods
-      // The winax library has issues with methods that have many parameters
-      // We'll try to use a workaround by creating a variant array
+      // Prefer the same direct COM route used by the fixed adapter path. The old
+      // plain-text .swp/RunMacro2 fallback cannot work reliably with SolidWorks.
       try {
-        // Method 1: Try the basic FeatureExtrusion with minimal params
-        // This uses a different calling convention that might work better
-        const args = [
-          true, // Sd (single direction)
-          reverse, // Flip
-          false, // Dir
-          0, // T1 (0 = blind)
-          0, // T2
-          depthInMeters, // D1 (depth)
-          0, // D2
-          false, // Dchk1
-          false, // Dchk2
-          false, // Ddir1
-          false, // Ddir2
-          0, // Dang1
-          0, // Dang2
-        ];
-
-        // Try to invoke the method directly
-        feature = featureMgr.FeatureExtrusion.apply(featureMgr, args);
-        logger.info('FeatureExtrusion succeeded with apply');
+        feature = featureMgr.FeatureExtrusion3(
+          true,
+          reverse,
+          false,
+          0,
+          0,
+          depthInMeters,
+          0,
+          draft !== 0,
+          false,
+          false,
+          false,
+          draftRad,
+          0,
+          false,
+          false,
+          false,
+          false,
+          true,
+          false,
+          true,
+          0,
+          0,
+          false
+        );
+        logger.info('FeatureExtrusion3 succeeded with direct COM');
       } catch (e) {
-        logger.warn(`FeatureExtrusion with apply failed: ${e}`);
+        directErrors.push(`FeatureExtrusion3 failed: ${e}`);
+        logger.warn(`FeatureExtrusion3 failed: ${e}`);
+      }
 
-        // Method 2: Try using the __methods__ property if available
+      // Older SolidWorks versions may still expose the legacy FeatureExtrusion API.
+      if (!feature) {
         try {
-          // Some COM objects expose methods differently
-          if (featureMgr.__methods__?.FeatureExtrusion) {
-            feature = featureMgr.__methods__.FeatureExtrusion(
-              true,
-              reverse,
-              false,
-              0,
-              0,
-              depthInMeters,
-              0,
-              false,
-              false,
-              false,
-              false,
-              0,
-              0
-            );
-            logger.info('FeatureExtrusion succeeded via __methods__');
-          } else {
-            throw new Error('__methods__ not available');
-          }
-        } catch (e2) {
-          logger.warn(`Alternative method failed: ${e2}`);
+          // Method 1: Try the basic FeatureExtrusion with minimal params
+          // This uses a different calling convention that might work better
+          const args = [
+            true, // Sd (single direction)
+            reverse, // Flip
+            false, // Dir
+            0, // T1 (0 = blind)
+            0, // T2
+            depthInMeters, // D1 (depth)
+            0, // D2
+            false, // Dchk1
+            false, // Dchk2
+            false, // Ddir1
+            false, // Ddir2
+            0, // Dang1
+            0, // Dang2
+          ];
 
-          // Method 3: Try to create the extrusion using automation-compatible approach
+          // Try to invoke the method directly
+          feature = featureMgr.FeatureExtrusion.apply(featureMgr, args);
+          logger.info('FeatureExtrusion succeeded with apply');
+        } catch (e) {
+          directErrors.push(`FeatureExtrusion with apply failed: ${e}`);
+          logger.warn(`FeatureExtrusion with apply failed: ${e}`);
+
+          // Method 2: Try using the __methods__ property if available
           try {
-            // Last resort: Try with explicit VARIANT conversion if available
-            const variant = winax.Variant;
-            if (variant) {
-              const params = new variant([
-                true,
-                reverse,
-                false,
-                0,
-                0,
-                depthInMeters,
-                0,
-                false,
-                false,
-                false,
-                false,
-                0,
-                0,
-              ]);
-              feature = featureMgr.FeatureExtrusion(params);
-              logger.info('FeatureExtrusion succeeded with VARIANT');
-            } else {
-              // Final fallback: standard call
-              feature = featureMgr.FeatureExtrusion(
+            // Some COM objects expose methods differently
+            if (featureMgr.__methods__?.FeatureExtrusion) {
+              feature = featureMgr.__methods__.FeatureExtrusion(
                 true,
                 reverse,
                 false,
@@ -399,20 +386,65 @@ export class SolidWorksAPI {
                 0,
                 0
               );
-              logger.info('FeatureExtrusion succeeded with standard call');
+              logger.info('FeatureExtrusion succeeded via __methods__');
+            } else {
+              throw new Error('__methods__ not available');
             }
-          } catch (e3) {
-            logger.warn(`All direct COM extrusion methods failed: ${e3}`);
-            logger.info('Falling back to VBA macro execution for extrusion...');
+          } catch (e2) {
+            directErrors.push(`FeatureExtrusion via __methods__ failed: ${e2}`);
+            logger.warn(`Alternative method failed: ${e2}`);
 
-            // Method 4: VBA macro fallback - bypasses winax parameter limit
-            feature = this.executeExtrusionViaMacro(depthInMeters, reverse);
+            // Method 3: Try to create the extrusion using automation-compatible approach
+            try {
+              // Last resort: Try with explicit VARIANT conversion if available
+              const variant = winax.Variant;
+              if (variant) {
+                const params = new variant([
+                  true,
+                  reverse,
+                  false,
+                  0,
+                  0,
+                  depthInMeters,
+                  0,
+                  false,
+                  false,
+                  false,
+                  false,
+                  0,
+                  0,
+                ]);
+                feature = featureMgr.FeatureExtrusion(params);
+                logger.info('FeatureExtrusion succeeded with VARIANT');
+              } else {
+                // Final fallback: standard call
+                feature = featureMgr.FeatureExtrusion(
+                  true,
+                  reverse,
+                  false,
+                  0,
+                  0,
+                  depthInMeters,
+                  0,
+                  false,
+                  false,
+                  false,
+                  false,
+                  0,
+                  0
+                );
+                logger.info('FeatureExtrusion succeeded with standard call');
+              }
+            } catch (e3) {
+              directErrors.push(`FeatureExtrusion standard/variant failed: ${e3}`);
+              logger.warn(`All direct COM extrusion methods failed: ${e3}`);
+            }
           }
         }
       }
 
       if (!feature) {
-        throw new Error('Failed to create extrusion - feature is null');
+        throw new Error(`Failed to create extrusion via direct COM. ${directErrors.join(' | ')}`);
       }
 
       // Get feature name
@@ -452,116 +484,6 @@ export class SolidWorksAPI {
       };
     } catch (error) {
       throw new Error(`Extrusion failed: ${error}`);
-    }
-  }
-
-  /**
-   * Execute extrusion via VBA macro - bypasses winax COM parameter limit.
-   * Used as fallback when direct COM calls fail with type mismatch errors.
-   */
-  private executeExtrusionViaMacro(depthInMeters: number, reverse: boolean): any {
-    const macroDir = join(tmpdir(), 'solidworks-mcp-macros');
-    const macroPath = join(macroDir, `extrusion_${Date.now()}.swp`);
-
-    try {
-      mkdirSync(macroDir, { recursive: true });
-    } catch (_e) {
-      // Directory may already exist
-    }
-
-    // Generate a silent VBA macro (no MsgBox — automation-safe)
-    const vbaCode = `Attribute VB_Name = "Module1"
-Option Explicit
-
-Sub CreateExtrusion()
-    Dim swApp As Object
-    Dim swModel As Object
-    Dim swFeatureMgr As Object
-    Dim swFeature As Object
-
-    On Error GoTo ErrorHandler
-
-    Set swApp = Application.SldWorks
-    Set swModel = swApp.ActiveDoc
-
-    If swModel Is Nothing Then Exit Sub
-
-    Set swFeatureMgr = swModel.FeatureManager
-
-    ' The sketch should already be selected by the caller.
-    ' Create a simple blind extrusion using FeatureExtrusion3
-    Set swFeature = swFeatureMgr.FeatureExtrusion3( _
-        True, _              ' Sd  (single direction)
-        ${reverse ? 'True' : 'False'}, _             ' Flip
-        False, _             ' Dir (both directions)
-        0, _                 ' T1  (blind end condition)
-        0, _                 ' T2
-        ${depthInMeters}, _  ' D1  (depth in meters)
-        0, _                 ' D2
-        False, _             ' Dchk1 (draft while extruding)
-        False, _             ' Dchk2
-        False, _             ' Ddir1 (draft outward)
-        False, _             ' Ddir2
-        0, _                 ' Dang1 (draft angle)
-        0, _                 ' Dang2
-        False, _             ' OffsetReverse1
-        False, _             ' OffsetReverse2
-        False, _             ' TranslateSurface1
-        False, _             ' TranslateSurface2
-        True, _              ' Merge
-        False, _             ' FlipSideToCut
-        True, _              ' UseFeatScope
-        0, _                 ' StartCondition
-        0, _                 ' StartOffset
-        False _              ' FlipStartOffset
-    )
-
-    ' Rebuild the model
-    swModel.EditRebuild3
-
-    Exit Sub
-
-ErrorHandler:
-    ' Silent fail — caller checks for feature creation
-    Debug.Print "Extrusion macro error: " & Err.Description
-End Sub
-`;
-
-    try {
-      writeFileSync(macroPath, vbaCode, 'utf-8');
-      logger.info(`Wrote extrusion macro to ${macroPath}`);
-
-      // Execute the macro via SolidWorks RunMacro2
-      const runResult = this.swApp.RunMacro2(
-        macroPath,
-        'Module1',
-        'CreateExtrusion',
-        1, // swRunMacroOption_e.swRunMacroUnloadAfterRun
-        0 // error out param
-      );
-      logger.info(`RunMacro2 returned: ${runResult}`);
-
-      // Retrieve the newly created feature (should be the most recent)
-      const feature = this.currentModel.FeatureByPositionReverse(0);
-      if (feature) {
-        const typeName = feature.GetTypeName2?.() || '';
-        if (typeName.toLowerCase().includes('extrusion') || typeName.toLowerCase().includes('boss')) {
-          logger.info(`VBA macro extrusion succeeded: ${feature.Name || feature.GetName?.()}`);
-          return feature;
-        }
-      }
-
-      throw new Error('VBA macro executed but no extrusion feature found');
-    } catch (macroError) {
-      logger.error(`VBA macro extrusion failed: ${macroError}`);
-      throw new Error(`Extrusion failed: all direct COM methods and VBA macro fallback failed. Details: ${macroError}`);
-    } finally {
-      // Clean up temp macro file
-      try {
-        unlinkSync(macroPath);
-      } catch (_e) {
-        // Ignore cleanup errors
-      }
     }
   }
 
