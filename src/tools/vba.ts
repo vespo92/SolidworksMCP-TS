@@ -181,7 +181,7 @@ End Sub`,
       macroPath: z.string().describe('Full path to the macro file (.swp or .swb)'),
       moduleName: z.string().default('Module1').describe('Module name containing the procedure'),
       procedureName: z.string().describe('Procedure name to execute'),
-      arguments: z.array(z.any()).optional().describe('Arguments to pass to the macro'),
+      arguments: z.array(z.unknown()).optional().describe('Arguments to pass to the macro'),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
       try {

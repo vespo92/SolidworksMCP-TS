@@ -163,7 +163,7 @@ export const nativeMacroTools = [
       macroPath: z.string().describe('Full path to the macro file (.swp or .swb)'),
       moduleName: z.string().default('main').describe('Module name containing the macro'),
       procedureName: z.string().default('main').describe('Procedure/subroutine name to run'),
-      arguments: z.array(z.any()).optional().describe('Arguments to pass to the macro'),
+      arguments: z.array(z.unknown()).optional().describe('Arguments to pass to the macro'),
       unloadAfterRun: z.boolean().default(true).describe('Unload macro from memory after execution'),
     }),
     handler: (args: any, swApi: SolidWorksAPI) => {
@@ -456,7 +456,7 @@ End Sub`;
             path: z.string().describe('Macro file path'),
             module: z.string().default('main').describe('Module name'),
             procedure: z.string().default('main').describe('Procedure name'),
-            arguments: z.array(z.any()).optional().describe('Arguments'),
+            arguments: z.array(z.unknown()).optional().describe('Arguments'),
             continueOnError: z.boolean().default(true).describe('Continue if this macro fails'),
           })
         )
