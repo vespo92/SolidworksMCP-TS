@@ -7,6 +7,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod';
 import type { SolidWorksAPI } from '../solidworks/api.js';
+import { runMacro2, SW_RUN_MACRO_DEFAULT, SW_RUN_MACRO_UNLOAD_AFTER_RUN } from '../solidworks/run-macro2.js';
 
 /**
  * Native macro recording tools that use SolidWorks' internal VBA engine
@@ -103,11 +104,12 @@ export const nativeMacroTools = [
 
         // Run macro if requested
         if (args.runMacro) {
-          swApp.RunMacro2(
+          runMacro2(
+            swApp,
             lastMacroPath,
             'main', // Default module name
             'main', // Default procedure name
-            1 // swRunMacroOption_e.swRunMacroUnloadAfterRun
+            SW_RUN_MACRO_UNLOAD_AFTER_RUN
           );
         }
 
@@ -177,7 +179,7 @@ export const nativeMacroTools = [
         }
 
         // Determine run option
-        const runOption = args.unloadAfterRun ? 1 : 0; // swRunMacroOption_e
+        const runOption = args.unloadAfterRun ? SW_RUN_MACRO_UNLOAD_AFTER_RUN : SW_RUN_MACRO_DEFAULT;
 
         // Run the macro
         let success: any;
@@ -187,7 +189,7 @@ export const nativeMacroTools = [
           success = vbaApp.RunMacroWithArguments(args.macroPath, args.moduleName, args.procedureName, args.arguments);
         } else {
           // Run without arguments
-          success = swApp.RunMacro2(args.macroPath, args.moduleName, args.procedureName, runOption);
+          success = runMacro2(swApp, args.macroPath, args.moduleName, args.procedureName, runOption).success;
         }
 
         if (!success) {
@@ -494,11 +496,12 @@ End Sub`;
             }
 
             // Run the macro
-            const success = swApp.RunMacro2(
+            const { success } = runMacro2(
+              swApp,
               macro.path,
               macro.module,
               macro.procedure,
-              1 // Unload after run
+              SW_RUN_MACRO_UNLOAD_AFTER_RUN
             );
 
             if (!success) {
