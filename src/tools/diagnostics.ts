@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { SolidWorksAPI } from '../solidworks/api.js';
+import { runMacro2, SW_RUN_MACRO_UNLOAD_AFTER_RUN } from '../solidworks/run-macro2.js';
 
 export const diagnosticTools = [
   {
@@ -53,15 +54,38 @@ export const diagnosticTools = [
         // Step 4: Try different RunMacro methods
         results.push('Step 4: Testing macro execution methods...');
 
-        // Method 1: RunMacro2 with all parameters
+        // Method 1: RunMacro2 with a byref OUT error param. This is the only
+        // shape that works on SolidWorks 2024+ (see run-macro2.ts); the two
+        // methods below are kept because they are what older guides suggest,
+        // and seeing them fail is itself the diagnosis.
         try {
-          results.push('  Testing RunMacro2 (full parameters)...');
+          results.push('  Testing RunMacro2 (byref error param — expected to work)...');
+          const { success, errorCode } = runMacro2(
+            swApp,
+            args.macroPath,
+            args.moduleName,
+            args.procedureName,
+            SW_RUN_MACRO_UNLOAD_AFTER_RUN
+          );
+          results.push(`    Result: ${success} (swRunMacroError_e ${errorCode})`);
+          if (success) {
+            results.push('    ✅ SUCCESS: Macro executed!');
+            return results.join('\n');
+          }
+        } catch (e) {
+          results.push(`    ❌ Failed: ${e}`);
+        }
+
+        // Method 2: RunMacro2 with the error param passed by value. Raises a
+        // type mismatch on SW 2024+ — COM wants Long*, not a Long.
+        try {
+          results.push('  Testing RunMacro2 (error param by value)...');
           const result = swApp.RunMacro2(
             args.macroPath,
             args.moduleName,
             args.procedureName,
             0, // swRunMacroDefault
-            0 // error parameter
+            0 // error parameter, passed by value
           );
           results.push(`    Result: ${result}`);
           if (result) {
@@ -72,7 +96,8 @@ export const diagnosticTools = [
           results.push(`    ❌ Failed: ${e}`);
         }
 
-        // Method 2: RunMacro2 without error parameter
+        // Method 3: RunMacro2 with the error param omitted. Raises
+        // "non-optional parameter" on SW 2024+.
         try {
           results.push('  Testing RunMacro2 (no error param)...');
           const result = swApp.RunMacro2(
@@ -90,7 +115,7 @@ export const diagnosticTools = [
           results.push(`    ❌ Failed: ${e}`);
         }
 
-        // Method 3: Legacy RunMacro
+        // Method 4: Legacy RunMacro
         try {
           results.push('  Testing RunMacro (legacy)...');
           const result = swApp.RunMacro(args.macroPath, args.moduleName, args.procedureName);

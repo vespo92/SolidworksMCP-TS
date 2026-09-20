@@ -521,13 +521,12 @@ export class WinAxAdapter implements ISolidWorksAdapter {
       false,
       params.translateSurface ?? false,
       false,
-      merge,
-      true,
-      true,
-      params.startCondition ?? 0,
-      0,
-      false,
-      false
+      merge, // 18 Merge
+      true, // 19 UseFeatScope
+      true, // 20 UseAutoSelect
+      params.startCondition ?? 0, // 21 T0: start condition
+      0, // 22 StartOffset
+      false // 23 FlipStartOffset
     );
 
     if (!feature) {
